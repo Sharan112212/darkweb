@@ -1,0 +1,69 @@
+version: "3.8"
+
+# =========================================================================
+# MOCK DARK WEB LAB — for PS 26151 prototype demo ONLY
+# All infrastructure, personas, and content here is synthetic and
+# self-hosted. Nothing in this stack touches real Tor hidden services,
+# real marketplaces, or real people.
+# =========================================================================
+
+services:
+
+  # --- Hidden service #1: a "vulnerable" marketplace-style site with a
+  # planted misconfiguration (reused SSL cert + exposed status page) ---
+  nginx-hidden:
+    build: ./nginx-hidden
+    container_name: nginx-hidden
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - lab-net
+    expose:
+      - "80"
+      - "443"
+
+  # --- Its "clearnet twin": a normal-looking public business site that
+  # happens to reuse the SAME SSL certificate — this is the leak your
+  # infra-matching module is meant to catch ---
+  nginx-clearnet:
+    build: ./nginx-clearnet
+    container_name: nginx-clearnet
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - lab-net
+    ports:
+      - "8443:443"   # reachable like a normal public website, for the matcher to fetch
+
+  # --- Hidden service #2: mock marketplace/forum app seeded with
+  # synthetic actor personas, posts, PGP keys and wallets ---
+  marketplace:
+    build: ./marketplace
+    container_name: marketplace
+    volumes:
+      - ./sample_data:/app/data:ro
+    networks:
+      - lab-net
+    expose:
+      - "5000"
+
+  # --- Tor daemon publishing both services above as .onion addresses ---
+  tor:
+    build: ./tor
+    container_name: tor-daemon
+    depends_on:
+      - nginx-hidden
+      - marketplace
+    volumes:
+      - tor-hidden-data:/var/lib/tor
+    networks:
+      - lab-net
+    ports:
+      - "9050:9050"   # SOCKS proxy, used by your scraper
+
+networks:
+  lab-net:
+    driver: bridge
+
+volumes:
+  tor-hidden-data:

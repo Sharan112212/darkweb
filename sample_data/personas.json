@@ -1,0 +1,84 @@
+[
+  {
+    "handle": "DarkFox",
+    "category": "stolen_data",
+    "source": "SecureVault Market",
+    "pgp_fingerprint": "9A3F 21B4 77C0 EE12 5D6A  8F90 11C3 4B22 FA01 9D77",
+    "wallet_address": "bc1qzp3d8x9k2m4h7j6n5w0e1r2t3y4u5i6o7p8a9",
+    "status": "active",
+    "last_seen": "2026-07-02",
+    "note": "Baseline persona A - original identity"
+  },
+  {
+    "handle": "DarkFox_v2",
+    "category": "stolen_data",
+    "source": "SecureVault Market",
+    "pgp_fingerprint": "9A3F 21B4 77C0 EE12 5D6A  8F90 11C3 4B22 FA01 9D77",
+    "wallet_address": "bc1qzp3d8x9k2m4h7j6n5w0e1r2t3y4u5i6o7p8a9",
+    "status": "active",
+    "last_seen": "2026-08-10",
+    "note": "EASY REBRAND CASE: same PGP key + same wallet as DarkFox. Identity graph module should auto-link these via shared identifiers."
+  },
+
+  {
+    "handle": "GhostVendor",
+    "category": "arms",
+    "source": "Obsidian Forum",
+    "pgp_fingerprint": "1122 33AA BBCC DD44 5566  7788 99EE FF00 1234 5678",
+    "wallet_address": "3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5",
+    "status": "inactive",
+    "last_seen": "2026-05-14",
+    "note": "Persona B before rebrand - no shared identifiers with its replacement"
+  },
+  {
+    "handle": "Nightshade99",
+    "category": "arms",
+    "source": "Obsidian Forum",
+    "pgp_fingerprint": "AABB CCDD 0099 8877 6655  4433 2211 0FED CBA9 8765",
+    "wallet_address": "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+    "status": "active",
+    "last_seen": "2026-08-01",
+    "note": "HARD REBRAND CASE: completely different PGP key and wallet from GhostVendor. Only writing style (see posts.json) links them. This is the case your stylometry module must catch."
+  },
+
+  {
+    "handle": "cipherqueen",
+    "category": "hacking_services",
+    "source": "SecureVault Market",
+    "pgp_fingerprint": "44FF 2211 AA33 BB55 CC77  DD99 EE00 1188 2299 3300",
+    "wallet_address": "bc1qxyz1a2b3c4d5e6f7g8h9i0jklmnopqrst",
+    "status": "active",
+    "last_seen": "2026-08-15",
+    "note": "Unrelated background persona - no links to any other actor"
+  },
+  {
+    "handle": "moneymule_88",
+    "category": "money_laundering",
+    "source": "Obsidian Forum",
+    "pgp_fingerprint": "7788 9900 AABB CCDD EEFF  0011 2233 4455 6677 8899",
+    "wallet_address": "bc1qmno9p8q7r6s5t4u3v2w1x0yzabcdefgh",
+    "status": "active",
+    "last_seen": "2026-08-05",
+    "note": "Unrelated background persona"
+  },
+  {
+    "handle": "pillcartel_x",
+    "category": "drugs",
+    "source": "SecureVault Market",
+    "pgp_fingerprint": "0099 1188 2277 3366 4455  5544 6633 7722 8811 9900",
+    "wallet_address": "1FghijK2LmnoPqrsTuvwXyzABC3DEfGhi4J",
+    "status": "active",
+    "last_seen": "2026-07-28",
+    "note": "Unrelated background persona"
+  },
+  {
+    "handle": "redroom_admin",
+    "category": "fraud",
+    "source": "Obsidian Forum",
+    "pgp_fingerprint": "5566 7788 9900 AABB CCDD  EEFF 0011 2233 4455 6677",
+    "wallet_address": "3GhIjKlmNoPqRsTuVwXyZ1a2B3c4D5e6F7g",
+    "status": "active",
+    "last_seen": "2026-08-12",
+    "note": "Unrelated background persona"
+  }
+]

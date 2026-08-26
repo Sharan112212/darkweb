@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><title>Obsidian Forum / SecureVault Market</title></head>
+<body style="background:#111;color:#ccc;font-family:monospace;padding:30px;">
+  <h1>:: Member Directory ::</h1>
+  <ul>
+  {% for p in personas %}
+    <li>
+      <a style="color:#7fd" href="/user/{{ p.handle }}">{{ p.handle }}</a>
+      &mdash; {{ p.category }} &mdash; {{ p.source }} &mdash; last seen {{ p.last_seen }}
+    </li>
+  {% endfor %}
+  </ul>
+</body>
+</html>

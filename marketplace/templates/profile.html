@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head><title>{{ persona.handle if persona else "Unknown" }}</title></head>
+<body style="background:#111;color:#ccc;font-family:monospace;padding:30px;">
+  {% if persona %}
+    <h1>{{ persona.handle }}</h1>
+    <p><b>Category:</b> {{ persona.category }}</p>
+    <p><b>Source:</b> {{ persona.source }}</p>
+    <p><b>Status:</b> {{ persona.status }}</p>
+    <p><b>Last seen:</b> {{ persona.last_seen }}</p>
+    <p><b>PGP fingerprint:</b> {{ persona.pgp_fingerprint }}</p>
+    <p><b>Wallet:</b> {{ persona.wallet_address }}</p>
+    <hr>
+    <h3>Posts</h3>
+    <ul>
+    {% for post in posts %}
+      <li><i>{{ post.timestamp }}</i><br>{{ post.text }}</li><br>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>User not found.</p>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Dark Web Lab — PS 26151 Prototype
+# All Python dependencies consolidated in one file.
+# Install with: pip install -r requirements.txt
+
+# --- Scraper ---
+requests[socks]==2.32.3
+beautifulsoup4==4.12.3
+
+# --- Stylometry (AI writing style analysis) ---
+sentence-transformers>=2.2.0
+
+# --- Dashboard ---
+streamlit>=1.30.0
+pandas>=2.0.0
+
+# --- Graph visualization (P1) ---
+networkx>=3.0
+pyvis>=0.3.0
+
+# --- Export ---
+reportlab>=4.0.0
+
+# --- Infra matcher dependency ---
+PySocks>=1.7.1

@@ -1,0 +1,15 @@
+# --- Tor config for the mock dark web lab ---
+
+SocksPort 0.0.0.0:9050
+
+# Hidden service #1: the "vulnerable" site (nginx-hidden) with the
+# planted misconfiguration your infra-matcher will detect
+HiddenServiceDir /var/lib/tor/hidden_service_vulnerable/
+HiddenServicePort 80 nginx-hidden:80
+HiddenServicePort 443 nginx-hidden:443
+
+# Hidden service #2: the mock marketplace/forum with synthetic personas
+HiddenServiceDir /var/lib/tor/hidden_service_marketplace/
+HiddenServicePort 80 marketplace:5000
+
+Log notice stdout
