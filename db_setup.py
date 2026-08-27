@@ -17,15 +17,31 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "scraper", "darkweb_intel.db")
 
 
 def setup_schema():
-    if not os.path.exists(DB_PATH):
-        print(f"[!] Database not found at {DB_PATH}")
-        print("    Run the scraper first to create the database.")
-        return False
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
     cur.executescript("""
+        -- Base scraper tables
+        CREATE TABLE IF NOT EXISTS actors (
+            handle TEXT PRIMARY KEY,
+            category TEXT,
+            source TEXT,
+            status TEXT,
+            last_seen TEXT,
+            pgp_fingerprint TEXT,
+            wallet_address TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            handle TEXT,
+            timestamp TEXT,
+            text TEXT,
+            FOREIGN KEY (handle) REFERENCES actors(handle)
+        );
+
         -- Common sink for identity-graph and stylometry links
         CREATE TABLE IF NOT EXISTS relationship_links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +66,7 @@ def setup_schema():
             matched_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- Optional: link an actor to an infra match
+        -- Actor location mapping
         CREATE TABLE IF NOT EXISTS actor_infra_map (
             handle TEXT,
             onion_address TEXT,

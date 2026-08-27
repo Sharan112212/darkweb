@@ -241,20 +241,23 @@ infra_links (
 # 2. Launch Docker environment
 docker compose up --build -d
 
-# 3. Get onion addresses
-docker exec tor-daemon cat /var/lib/tor/hidden_service_marketplace/hostname
-docker exec tor-daemon cat /var/lib/tor/hidden_service_vulnerable/hostname
+# 3. Pre-cache SBERT model locally for offline inference
+python download_model.py
 
-# 4. Scrape data
+# 4. Initialize Database Schema (creates all tables & constraints)
+python db_setup.py
+
+# 5. Get onion addresses & run scraper
+docker exec tor-daemon cat /var/lib/tor/hidden_service_marketplace/hostname
 python scraper/scraper.py --onion <marketplace>.onion
 
-# 5. Run full attribution pipeline (schema -> identity -> stylometry -> fusion)
+# 6. Run full attribution pipeline (schema -> identity -> stylometry -> fusion)
 py run_pipeline.py
 
-# 6. Run infrastructure matcher
+# 7. Run infrastructure matcher
 py infra-matcher/match_infra.py --onion <vulnerable>.onion
 
-# 7. Launch Streamlit Dashboard
+# 8. Launch Streamlit Dashboard
 py -m streamlit run dashboard.py
 ```
 
