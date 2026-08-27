@@ -89,6 +89,18 @@ def scrape(onion_address):
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (handle, category, source, status, last_seen, pgp, wallet))
 
+        # Record actor location in actor_infra_map
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS actor_infra_map (
+                handle TEXT,
+                onion_address TEXT
+            )
+        """)
+        cur.execute("""
+            INSERT INTO actor_infra_map (handle, onion_address)
+            VALUES (?, ?)
+        """, (handle, onion_address))
+
         for li in psoup.select("ul li"):
             post_text = li.get_text(" ", strip=True)
             if post_text and "PGP" not in post_text:

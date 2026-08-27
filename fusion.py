@@ -59,6 +59,7 @@ def run_fusion():
     fused_records = []
 
     for (a, b), links in pair_links.items():
+        actor_a_norm, actor_b_norm = min(a, b), max(a, b)
         confidences = [l['confidence'] for l in links]
         link_types = list(dict.fromkeys([l['link_type'] for l in links]))  # preserve order, unique
         
@@ -80,7 +81,7 @@ def run_fusion():
         evidence_lines = [f"[{l['link_type']}] (conf: {l['confidence']}%): {l['evidence']}" for l in links]
         evidence_summary = " | ".join(evidence_lines)
 
-        fused_records.append((a, b, fused_confidence, contributing_types_str, signal_count, evidence_summary))
+        fused_records.append((actor_a_norm, actor_b_norm, fused_confidence, contributing_types_str, signal_count, evidence_summary))
 
     # Write to fused_links table
     cur.executemany("""

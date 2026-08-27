@@ -79,9 +79,21 @@ def save_match_to_db(onion_address, clearnet_host, confidence_score=98):
         confidence_score
     ))
 
+    # Link actors from SecureVault Market / hidden service to actor_infra_map
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS actor_infra_map (
+            handle TEXT,
+            onion_address TEXT
+        )
+    """)
+    cur.execute("SELECT handle FROM actors WHERE source LIKE '%SecureVault%' OR source LIKE '%Market%'")
+    target_actors = [r[0] for r in cur.fetchall()]
+    for handle in target_actors:
+        cur.execute("INSERT INTO actor_infra_map (handle, onion_address) VALUES (?, ?)", (handle, onion_address))
+
     conn.commit()
     conn.close()
-    print(f"[+] Match result saved to database ({DB_PATH})")
+    print(f"[+] Match result saved to database ({DB_PATH}) and mapped to actors: {', '.join(target_actors)}")
 
 
 if __name__ == "__main__":

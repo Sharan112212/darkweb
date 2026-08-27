@@ -61,9 +61,13 @@ def run_stylometry():
     handles = list(actor_texts.keys())
     texts = [actor_texts[h] for h in handles]
 
-    print(f"[*] Loading Sentence-BERT model ({MODEL_NAME})...")
-    print("    (First run downloads ~80MB model — this is normal)")
-    model = SentenceTransformer(MODEL_NAME)
+    LOCAL_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models", "all-MiniLM-L6-v2")
+    if os.path.exists(LOCAL_MODEL_DIR):
+        print(f"[*] Loading pre-cached local Sentence-BERT model from: {LOCAL_MODEL_DIR}")
+        model = SentenceTransformer(LOCAL_MODEL_DIR)
+    else:
+        print(f"[*] Loading Sentence-BERT model ({MODEL_NAME})...")
+        model = SentenceTransformer(MODEL_NAME)
 
     print(f"[*] Computing embeddings for {len(handles)} actors...")
     embeddings = model.encode(texts, convert_to_tensor=True)
@@ -85,14 +89,15 @@ def run_stylometry():
     # Sort by similarity descending
     all_pairs.sort(key=lambda x: x[2], reverse=True)
 
-    # --- Print top 5 pairs for tuning ---
-    print("\n[*] Top 5 most similar actor pairs (for threshold tuning):")
-    print("    " + "-" * 60)
-    for a, b, sim, pair_key in all_pairs[:5]:
-        already_linked = "  (already linked by stylometry)" if pair_key in existing_style_links else ""
-        print(f"    {a:20s} <-> {b:20s}  similarity: {sim:.4f}{already_linked}")
-    print("    " + "-" * 60)
-    print(f"    Current threshold: {SIMILARITY_THRESHOLD}")
+    # --- Print top 10 pairs for threshold calibration ---
+    print("\n[*] Top 10 most similar actor pairs (for 0.75 threshold calibration):")
+    print("    " + "-" * 65)
+    for idx, (a, b, sim, pair_key) in enumerate(all_pairs[:10], 1):
+        status_flag = "  [MATCH >= 0.75]" if sim >= SIMILARITY_THRESHOLD else "  [BELOW THRESHOLD]"
+        already_linked = " (already in DB)" if pair_key in existing_style_links else ""
+        print(f"    {idx:2d}. {a:18s} <-> {b:18s}  similarity: {sim:.4f}{status_flag}{already_linked}")
+    print("    " + "-" * 65)
+    print(f"    Active Threshold: {SIMILARITY_THRESHOLD}")
 
     # --- Write matches above threshold ---
     links_created = 0

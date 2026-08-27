@@ -113,13 +113,14 @@ A **self-contained, self-hosted mock dark web laboratory** that provides a safe,
 | **Cert generator** | `./certs/generate_certs.sh` | Generates `shared_cert.pem` + `shared_key.pem` |
 | **Marketplace** | `./marketplace/` | Flask app serving 10 personas + 22 posts from JSON |
 | **Sample data** | `./sample_data/` | `personas.json` (10 actors) + `posts.json` (22 posts) |
-| **Scraper** | `./scraper/` | Tor-aware crawler → writes to SQLite `darkweb_intel.db` |
-| **DB Setup** | `./db_setup.py` | Schema extension script (adds relationship_links, fused_links, link_feedback) |
+| **Scraper** | `./scraper/` | Tor-aware crawler → writes to SQLite `darkweb_intel.db` & `actor_infra_map` |
+| **DB Setup** | `./db_setup.py` | Schema extension script (adds relationship_links, fused_links, link_feedback, actor_infra_map) |
 | **Identity Graph** | `./identity_graph.py` | Links actors by PGP fingerprint (95%) and wallet address (90%) |
-| **Stylometry** | `./stylometry.py` | Sentence-BERT embeddings + cosine similarity writing style matcher |
-| **Fusion Engine** | `./fusion.py` | Noisy-OR probabilistic multi-signal fusion engine |
+| **Model Pre-cacher** | `./download_model.py` | Pre-caches SBERT model weights locally to `./models/all-MiniLM-L6-v2` for offline inference |
+| **Stylometry** | `./stylometry.py` | Sentence-BERT embeddings + cosine similarity writing style matcher (loads locally from `./models/`) |
+| **Fusion Engine** | `./fusion.py` | Noisy-OR probabilistic multi-signal fusion engine (with normalized `min(A,B), max(A,B)` pair ordering) |
 | **Feedback Stats** | `./feedback_stats.py` | Computes historical signal reliability percentages from analyst feedback |
-| **Infra matcher** | `./infra-matcher/` | Compares SSL cert SHA-256 fingerprints & writes to `infra_links` |
+| **Infra matcher** | `./infra-matcher/` | Compares SSL cert SHA-256 fingerprints, populates `infra_links` & `actor_infra_map` |
 | **Pipeline Runner** | `./run_pipeline.py` | Executable orchestrating db_setup → identity_graph → stylometry → fusion |
 | **Dashboard** | `./dashboard.py` | Streamlit UI with multi-signal fusion badge, analyst feedback buttons, and export |
 
