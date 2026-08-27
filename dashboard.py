@@ -74,6 +74,17 @@ def get_link_count(handle):
     return rows[0]["cnt"] if rows else 0
 
 
+def record_feedback(link_id, link_source, feedback_val):
+    """Record analyst feedback (confirmed/rejected) in link_feedback table."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO link_feedback (link_id, link_source, feedback)
+        VALUES (?, ?, ?)
+    """, (link_id, link_source, feedback_val))
+    conn.commit()
+
+
 # ============================================================
 # Custom CSS
 # ============================================================
@@ -198,6 +209,19 @@ with st.sidebar:
         st.metric("Posts Collected", posts_count)
         st.metric("Relationship Links", links_count)
         st.metric("Infra Matches", infra_count)
+
+        # Analyst Feedback Reliability Stats
+        if table_exists("link_feedback") and table_exists("relationship_links"):
+            st.markdown("---")
+            st.markdown("### 📊 Signal Reliability")
+            from feedback_stats import get_feedback_stats
+            fb_stats = get_feedback_stats()
+            if fb_stats:
+                for ltype, data in fb_stats.items():
+                    label = "Shared ID" if ltype == "shared_identifier" else "Stylometry"
+                    st.markdown(f"**{label}:** `{data['reliability_pct']}%` reliability ({data['confirmed']}/{data['total']} confirmed)")
+            else:
+                st.caption("No analyst feedback recorded yet.")
     else:
         st.error("Database not found!")
 
@@ -281,9 +305,30 @@ if st.session_state.selected_actor is not None:
     # --- Linked Personas ---
     st.markdown("### 🔗 Linked Personas")
 
+    # --- Multi-Signal Fusion Display ---
+    if table_exists("fused_links"):
+        fused_df = query_df("""
+            SELECT actor_a, actor_b, fused_confidence, contributing_link_types, signal_count, evidence_summary
+            FROM fused_links
+            WHERE actor_a = ? OR actor_b = ?
+            ORDER BY fused_confidence DESC
+        """, (handle, handle))
+
+        if not fused_df.empty:
+            for _, f_row in fused_df.iterrows():
+                other_actor = f_row['actor_b'] if f_row['actor_a'] == handle else f_row['actor_a']
+                scount = f_row['signal_count']
+                fconf = f_row['fused_confidence']
+                types = f_row['contributing_link_types']
+                
+                if scount > 1:
+                    st.success(f"🔥 **Multi-Signal Fused Score: {fconf}%** for **{other_actor}** — Fused across **{scount} independent signals** (`{types}`)")
+                else:
+                    st.info(f"⚡ **Fused Confidence Score: {fconf}%** for **{other_actor}** (`{types}`)")
+
     if table_exists("relationship_links"):
         links = query_df("""
-            SELECT actor_a, actor_b, link_type, evidence, confidence_score
+            SELECT id, actor_a, actor_b, link_type, evidence, confidence_score
             FROM relationship_links
             WHERE actor_a = ? OR actor_b = ?
             ORDER BY confidence_score DESC
@@ -299,25 +344,53 @@ if st.session_state.selected_actor is not None:
                 for _, link in shared_links.iterrows():
                     other = link['actor_b'] if link['actor_a'] == handle else link['actor_a']
                     emoji = confidence_emoji(link['confidence_score'])
-                    st.markdown(f"""
+                    link_id = link['id']
+
+                    card_col, btn_col1, btn_col2 = st.columns([5, 1, 1])
+                    with card_col:
+                        st.markdown(f"""
 <div class="link-card link-shared">
     <strong>{other}</strong> &nbsp; {emoji} <span class="{confidence_class(link['confidence_score'])}">Confidence: {link['confidence_score']}%</span><br>
     <span class="evidence-text">📋 {link['evidence']}</span>
 </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
+                    with btn_col1:
+                        if st.button("👍 Confirm", key=f"conf_shared_{link_id}"):
+                            record_feedback(link_id, "relationship_links", "confirmed")
+                            st.toast(f"Feedback recorded: Confirmed link with {other}!")
+                            st.rerun()
+                    with btn_col2:
+                        if st.button("👎 False Positive", key=f"rej_shared_{link_id}"):
+                            record_feedback(link_id, "relationship_links", "rejected")
+                            st.toast(f"Feedback recorded: Flagged false positive for {other}!")
+                            st.rerun()
 
             if not style_links.empty:
                 st.markdown("#### 🧠 Linked via Writing Style (AI Stylometry)")
                 for _, link in style_links.iterrows():
                     other = link['actor_b'] if link['actor_a'] == handle else link['actor_a']
                     emoji = confidence_emoji(link['confidence_score'])
-                    st.markdown(f"""
+                    link_id = link['id']
+
+                    card_col, btn_col1, btn_col2 = st.columns([5, 1, 1])
+                    with card_col:
+                        st.markdown(f"""
 <div class="link-card link-stylometric">
     <strong>{other}</strong> &nbsp; {emoji} <span class="{confidence_class(link['confidence_score'])}">Confidence: {link['confidence_score']}%</span><br>
     <span class="evidence-text">🧠 {link['evidence']}</span><br>
     <span class="evidence-text">⚠️ This pair shares NO PGP key or wallet — this link was found through AI stylometric analysis only.</span>
 </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
+                    with btn_col1:
+                        if st.button("👍 Confirm", key=f"conf_style_{link_id}"):
+                            record_feedback(link_id, "relationship_links", "confirmed")
+                            st.toast(f"Feedback recorded: Confirmed link with {other}!")
+                            st.rerun()
+                    with btn_col2:
+                        if st.button("👎 False Positive", key=f"rej_style_{link_id}"):
+                            record_feedback(link_id, "relationship_links", "rejected")
+                            st.toast(f"Feedback recorded: Flagged false positive for {other}!")
+                            st.rerun()
 
             if shared_links.empty and style_links.empty:
                 st.info("No linked personas found for this actor.")

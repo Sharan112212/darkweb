@@ -68,11 +68,11 @@ def run_stylometry():
     print(f"[*] Computing embeddings for {len(handles)} actors...")
     embeddings = model.encode(texts, convert_to_tensor=True)
 
-    # --- Get already-linked pairs (from identity graph) to exclude ---
-    cur.execute("SELECT actor_a, actor_b FROM relationship_links")
-    existing_links = set()
+    # --- Get existing stylometric links to avoid duplicates on re-run ---
+    cur.execute("SELECT actor_a, actor_b FROM relationship_links WHERE link_type = 'stylometric'")
+    existing_style_links = set()
     for a, b in cur.fetchall():
-        existing_links.add((min(a, b), max(a, b)))
+        existing_style_links.add((min(a, b), max(a, b)))
 
     # --- Compute pairwise cosine similarity ---
     print("[*] Computing pairwise similarity...")
@@ -89,19 +89,19 @@ def run_stylometry():
     print("\n[*] Top 5 most similar actor pairs (for threshold tuning):")
     print("    " + "-" * 60)
     for a, b, sim, pair_key in all_pairs[:5]:
-        already_linked = "  (already linked by identifier)" if pair_key in existing_links else ""
+        already_linked = "  (already linked by stylometry)" if pair_key in existing_style_links else ""
         print(f"    {a:20s} <-> {b:20s}  similarity: {sim:.4f}{already_linked}")
     print("    " + "-" * 60)
     print(f"    Current threshold: {SIMILARITY_THRESHOLD}")
 
-    # --- Write matches above threshold (excluding already-linked pairs) ---
+    # --- Write matches above threshold ---
     links_created = 0
     for a, b, sim, pair_key in all_pairs:
         if sim < SIMILARITY_THRESHOLD:
             break  # sorted descending, so all remaining are below threshold
 
-        if pair_key in existing_links:
-            continue  # skip pairs already linked by identity graph
+        if pair_key in existing_style_links:
+            continue  # skip if stylometric link already recorded
 
         confidence = int(round(sim * 100))
         evidence = f"Writing style similarity score: {sim:.4f} (Sentence-BERT cosine similarity)"

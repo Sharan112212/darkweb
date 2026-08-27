@@ -80,5 +80,25 @@
     "status": "active",
     "last_seen": "2026-08-12",
     "note": "Unrelated background persona"
+  },
+  {
+    "handle": "ViperX",
+    "category": "hacking_services",
+    "source": "SecureVault Market",
+    "pgp_fingerprint": "D1D2 D3D4 E1E2 E3E4 F1F2  1122 3344 5566 7788 9900",
+    "wallet_address": "1ViperX888888888888888888888888888",
+    "status": "inactive",
+    "last_seen": "2026-06-18",
+    "note": "MULTI-SIGNAL FUSION CASE: Original identity (hacking vendor)"
+  },
+  {
+    "handle": "ViperX_Reborn",
+    "category": "hacking_services",
+    "source": "Obsidian Forum",
+    "pgp_fingerprint": "8877 6655 4433 2211 00FF  E2E1 D4D3 C2C1 B2B1 A2A1",
+    "wallet_address": "1ViperX888888888888888888888888888",
+    "status": "active",
+    "last_seen": "2026-08-20",
+    "note": "MULTI-SIGNAL FUSION CASE: Rebranded identity sharing SAME wallet AND matching writing style. Triggers signal_count=2 and boosted fused confidence (~99%)."
   }
 ]

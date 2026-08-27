@@ -63,7 +63,9 @@ def print_summary():
         ("actors", "Actor profiles from scraper"),
         ("posts", "Forum/marketplace posts"),
         ("relationship_links", "Identity + stylometry links"),
+        ("fused_links", "Multi-signal fused confidence links"),
         ("infra_links", "Infrastructure correlation matches"),
+        ("link_feedback", "Analyst feedback entries"),
     ]
 
     for table_name, description in tables_info:
@@ -74,22 +76,23 @@ def print_summary():
         except sqlite3.OperationalError:
             print(f"    {table_name:25s}     — table not found")
 
-    # Show specific links
-    print("\n  Relationship links detail:")
+    # Show specific fused links
+    print("\n  Multi-Signal Fused Links detail:")
     try:
         cur.execute("""
-            SELECT actor_a, actor_b, link_type, confidence_score
-            FROM relationship_links
-            ORDER BY confidence_score DESC
+            SELECT actor_a, actor_b, fused_confidence, signal_count, contributing_link_types
+            FROM fused_links
+            ORDER BY fused_confidence DESC
         """)
-        links = cur.fetchall()
-        if links:
-            for a, b, ltype, score in links:
-                print(f"    {a:20s} <-> {b:20s}  [{ltype}]  confidence: {score}%")
+        fused = cur.fetchall()
+        if fused:
+            for a, b, score, scount, stypes in fused:
+                boost = " [BOOSTED MULTI-SIGNAL]" if scount > 1 else ""
+                print(f"    {a:20s} <-> {b:20s}  fused: {score}%  (signals: {scount} [{stypes}]){boost}")
         else:
-            print("    (no links found)")
+            print("    (no fused links found)")
     except sqlite3.OperationalError:
-        print("    (table not available)")
+        print("    (fused_links table not available)")
 
     conn.close()
 
@@ -116,6 +119,10 @@ if __name__ == "__main__":
     # Step 3: Stylometry
     from stylometry import run_stylometry
     run_step("Step 3: Running stylometric analysis (AI writing style)", run_stylometry)
+
+    # Step 4: Multi-signal Fusion
+    from fusion import run_fusion
+    run_step("Step 4: Running Multi-Signal Fusion engine (Noisy-OR)", run_fusion)
 
     # Final summary
     print_summary()

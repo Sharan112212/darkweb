@@ -58,10 +58,36 @@ def setup_schema():
             FOREIGN KEY (onion_address) REFERENCES infra_links(onion_address)
         );
 
+        -- Multi-signal fusion confidence scores
+        CREATE TABLE IF NOT EXISTS fused_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            actor_a TEXT NOT NULL,
+            actor_b TEXT NOT NULL,
+            fused_confidence INTEGER NOT NULL CHECK (fused_confidence BETWEEN 0 AND 100),
+            contributing_link_types TEXT NOT NULL,
+            signal_count INTEGER NOT NULL,
+            evidence_summary TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (actor_a) REFERENCES actors(handle),
+            FOREIGN KEY (actor_b) REFERENCES actors(handle),
+            UNIQUE (actor_a, actor_b)
+        );
+
+        -- Analyst feedback loop
+        CREATE TABLE IF NOT EXISTS link_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            link_id INTEGER,
+            link_source TEXT NOT NULL,
+            feedback TEXT NOT NULL CHECK (feedback IN ('confirmed', 'rejected')),
+            analyst_note TEXT,
+            submitted_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
         -- Indexes for query performance
         CREATE INDEX IF NOT EXISTS idx_posts_handle ON posts(handle);
         CREATE INDEX IF NOT EXISTS idx_links_actor_a ON relationship_links(actor_a);
         CREATE INDEX IF NOT EXISTS idx_links_actor_b ON relationship_links(actor_b);
+        CREATE INDEX IF NOT EXISTS idx_fused_actors ON fused_links(actor_a, actor_b);
     """)
 
     conn.commit()
