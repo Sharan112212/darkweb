@@ -405,7 +405,15 @@ if st.session_state.selected_actor is not None:
     st.markdown("### 🌐 Infrastructure Correlation")
 
     if table_exists("infra_links"):
-        infra = query_df("SELECT * FROM infra_links")
+        # Check if this actor is mapped to an infra match via actor_infra_map
+        if table_exists("actor_infra_map"):
+            infra = query_df("""
+                SELECT i.* FROM infra_links i
+                JOIN actor_infra_map m ON i.onion_address = m.onion_address
+                WHERE m.handle = ?
+            """, (handle,))
+        else:
+            infra = pd.DataFrame()
 
         if not infra.empty:
             for _, match in infra.iterrows():
@@ -419,7 +427,7 @@ if st.session_state.selected_actor is not None:
 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("No infrastructure matches found. Run `match_infra.py` first.")
+            st.info("No infrastructure correlation matches found for this specific actor.")
     else:
         st.info("Infrastructure links table not found. Run `db_setup.py` first.")
 
