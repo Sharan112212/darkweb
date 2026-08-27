@@ -37,18 +37,19 @@ def run_identity_graph():
     for row in cur.fetchall():
         fingerprint = row[0]
         handles = row[1].split("||")
-        for a, b in combinations(sorted(handles), 2):
+        for a, b in combinations(handles, 2):
+            actor_a_norm, actor_b_norm = min(a, b), max(a, b)
             try:
                 cur.execute("""
                     INSERT OR IGNORE INTO relationship_links
                     (actor_a, actor_b, link_type, evidence, confidence_score)
                     VALUES (?, ?, 'shared_identifier', ?, ?)
-                """, (a, b, f"Shared PGP fingerprint: {fingerprint}", PGP_CONFIDENCE))
+                """, (actor_a_norm, actor_b_norm, f"Shared PGP fingerprint: {fingerprint}", PGP_CONFIDENCE))
                 if cur.rowcount > 0:
                     links_created += 1
-                    print(f"[+] Linked {a} <-> {b} (shared PGP fingerprint, confidence {PGP_CONFIDENCE}%)")
+                    print(f"[+] Linked {actor_a_norm} <-> {actor_b_norm} (shared PGP fingerprint, confidence {PGP_CONFIDENCE}%)")
             except sqlite3.Error as e:
-                print(f"[!] Error linking {a} <-> {b}: {e}")
+                print(f"[!] Error linking {actor_a_norm} <-> {actor_b_norm}: {e}")
 
     # --- Group by shared wallet address ---
     cur.execute("""
@@ -62,18 +63,19 @@ def run_identity_graph():
     for row in cur.fetchall():
         wallet = row[0]
         handles = row[1].split("||")
-        for a, b in combinations(sorted(handles), 2):
+        for a, b in combinations(handles, 2):
+            actor_a_norm, actor_b_norm = min(a, b), max(a, b)
             try:
                 cur.execute("""
                     INSERT OR IGNORE INTO relationship_links
                     (actor_a, actor_b, link_type, evidence, confidence_score)
                     VALUES (?, ?, 'shared_identifier', ?, ?)
-                """, (a, b, f"Shared wallet address: {wallet}", WALLET_CONFIDENCE))
+                """, (actor_a_norm, actor_b_norm, f"Shared wallet address: {wallet}", WALLET_CONFIDENCE))
                 if cur.rowcount > 0:
                     links_created += 1
-                    print(f"[+] Linked {a} <-> {b} (shared wallet address, confidence {WALLET_CONFIDENCE}%)")
+                    print(f"[+] Linked {actor_a_norm} <-> {actor_b_norm} (shared wallet address, confidence {WALLET_CONFIDENCE}%)")
             except sqlite3.Error as e:
-                print(f"[!] Error linking {a} <-> {b}: {e}")
+                print(f"[!] Error linking {actor_a_norm} <-> {actor_b_norm}: {e}")
 
     conn.commit()
     conn.close()

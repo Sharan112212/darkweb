@@ -51,15 +51,24 @@ def run_stylometry():
     # Concatenate each actor's posts into one text blob
     actor_texts = {}
     for handle, text in rows:
-        if handle not in actor_texts:
-            actor_texts[handle] = []
-        actor_texts[handle].append(text)
+        if text and text.strip():
+            if handle not in actor_texts:
+                actor_texts[handle] = []
+            actor_texts[handle].append(text.strip())
 
-    for handle in actor_texts:
-        actor_texts[handle] = " ".join(actor_texts[handle])
+    filtered_actor_texts = {}
+    for handle, t_list in actor_texts.items():
+        combined = " ".join(t_list).strip()
+        if combined:
+            filtered_actor_texts[handle] = combined
 
-    handles = list(actor_texts.keys())
-    texts = [actor_texts[h] for h in handles]
+    if not filtered_actor_texts:
+        print("[!] No valid post text found for any actor.")
+        conn.close()
+        return 0
+
+    handles = list(filtered_actor_texts.keys())
+    texts = [filtered_actor_texts[h] for h in handles]
 
     LOCAL_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models", "all-MiniLM-L6-v2")
     if os.path.exists(LOCAL_MODEL_DIR):
