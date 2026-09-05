@@ -522,3 +522,28 @@ The remaining wallets are safe placeholders — they **fail** validation and can
 | `sample_data/posts.json` | **SYNTHETIC — SAFE** | Fictional prose; no real identifiers, no illegal material, no personal data. |
 
 ---
+
+## Where this repo differs from the plan's assumptions
+
+| Plan assumed | Actually found | Impact |
+|---|---|---|
+| Project lives under `darklabdoc/darkweb-lab/` | Everything is at the **repo root**; no such directory exists | Any tooling/CI keyed to that path is wrong; use repo root |
+| A `tests/` suite exists | **No `tests/` directory anywhere** — zero automated coverage | Every adapter must ship with its own first tests; nothing to extend |
+| 7 tables (per this task file) | **7 user tables** created by `db_setup.py` — count is correct; `sqlite_master` shows 8 due to `sqlite_sequence` | Plan count validated; watch for the phantom 8th when counting programmatically |
+| `docs/Backend_Schema.md` is current | It documents only 5 tables — **omits `fused_links` and `link_feedback`** | Schema doc is stale; `db_setup.py` is the source of truth |
+| Confidence values may be hardcoded | **Confirmed hardcoded**: PGP=95, wallet=90 (`identity_graph.py:18-19`); stylometry conf = rescaled cosine (`stylometry.py:120`) | Fusion inputs are uncalibrated constants |
+| Stylometry = authorship analysis | It is **semantic** cosine similarity (SBERT `all-MiniLM-L6-v2`), labelled `'stylometric'` / "AI Stylometry" | Output label overstates evidence; rename to `semantic_similarity` |
+| Fusion has category grouping (K/I/B/S) | **No categories at all** — flat noisy-OR over raw `confidence_score` | Enum + categorised fusion is net-new work |
+| Fusion treats independent signals | **Double-counts** non-independent identifiers (`confidences` not deduped, `fusion.py:63`) | Inflated 99% scores; EC-24 confirmed |
+| `link_feedback` captures a reason | `analyst_note` column exists but is **never written** (`dashboard.py:81-84`) | EC-26 open; no acting-user recorded either |
+| Provenance exists somewhere | **Zero** provenance columns in any table | Capture ID / source URL / hash all net-new |
+| Fusion reads all signals incl. infra | `fusion.py` reads **only** `relationship_links`; `infra_links` is never fused | Infrastructure evidence does not currently affect any fused score |
+
+## Open questions for the team
+
+1. **UNVERIFIED — does the DarkFox PGP+wallet double-count actually occur?** The `UNIQUE(actor_a,actor_b,link_type)` constraint (`db_setup.py:56`) means both shared-identifier rows (PGP *and* wallet) collapse to one row per pair, so the EC-24 double-count may be suppressed for same-`link_type` facets and only manifest across *different* link types. Resolving needs a live DB run + inspection of `relationship_links`. (No runtime run performed — HARD CONSTRAINT 1.)
+2. **NEEDS REVIEW — the two checksum-valid BTC addresses** in `personas.json` (Nightshade99, GhostVendor). Confirm the team wants them replaced with invalid placeholders before any public demo. Resolution: swap the strings (a data-only change, out of this audit's write scope).
+3. Should `infra_links` evidence feed the fusion score? Today it is orphaned from `fused_links`. Needs a product decision before the categorised-fusion rebuild.
+4. What analyst-identity mechanism will back `audit_events`? The dashboard has no auth, so there is currently no identity to record. Blocks the feedback/audit redesign.
+
+---
