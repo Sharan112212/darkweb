@@ -450,25 +450,29 @@ if st.session_state.selected_actor is not None:
         from pyvis.network import Network
         import streamlit.components.v1 as components
 
-        net = Network(height="400px", width="100%", bgcolor="#0f172a", font_color="#f8fafc", notebook=False)
+        net = Network(height="420px", width="100%", bgcolor="#0f172a", font_color="#f8fafc", notebook=False)
         net.barnes_hut(gravity=-3000, central_gravity=0.3, spring_length=120)
 
         # Center node
         net.add_node(handle, label=handle, color="#10b981", size=30, title=f"Actor: {handle} (Center)")
+        added_nodes = {handle}
+        has_connections = False
 
         # PGP node
         if pgp and pgp != "None":
             pgp_short = pgp[:12] + "..."
             net.add_node(pgp_short, label=f"PGP: {pgp_short}", color="#f59e0b", size=18, shape="diamond", title=f"PGP Key: {pgp}")
             net.add_edge(handle, pgp_short, title="Published PGP Key", color="#f59e0b", width=2)
+            has_connections = True
 
         # Wallet node
         if wallet and wallet != "None":
             w_short = wallet[:12] + "..."
             net.add_node(w_short, label=f"Wallet: {w_short}", color="#3b82f6", size=18, shape="box", title=f"Wallet: {wallet}")
             net.add_edge(handle, w_short, title="Crypto Wallet", color="#3b82f6", width=2)
+            has_connections = True
 
-        # Connected links
+        # 1. Connected relationship links
         if table_exists("relationship_links"):
             links = query_rows("""
                 SELECT actor_a, actor_b, link_type, evidence, confidence_score
@@ -480,16 +484,56 @@ if st.session_state.selected_actor is not None:
                 ltype = l["link_type"]
                 edge_color = "#10b981" if score >= 90 else ("#f59e0b" if score >= 70 else "#ef4444")
                 
-                net.add_node(other, label=other, color="#06b6d4", size=22, title=f"Linked Actor: {other}")
+                if other not in added_nodes:
+                    net.add_node(other, label=other, color="#06b6d4", size=22, title=f"Linked Actor: {other}")
+                    added_nodes.add(other)
                 net.add_edge(
                     handle, other,
                     title=f"Link ({ltype}): {score}% confidence",
                     color=edge_color,
                     width=max(1, int(score / 20))
                 )
+                has_connections = True
 
-        html_code = net.generate_html()
-        components.html(html_code, height=420)
+        # 2. Connected fused links
+        if table_exists("fused_links"):
+            fused = query_rows("""
+                SELECT actor_a, actor_b, fused_confidence, contributing_link_types
+                FROM fused_links WHERE actor_a = ? OR actor_b = ?
+            """, (handle, handle))
+            for f in fused:
+                other = f["actor_b"] if f["actor_a"] == handle else f["actor_a"]
+                score = f["fused_confidence"]
+                types = f["contributing_link_types"]
+                if other not in added_nodes:
+                    net.add_node(other, label=other, color="#8b5cf6", size=24, title=f"Fused Actor: {other}")
+                    added_nodes.add(other)
+                net.add_edge(
+                    handle, other,
+                    title=f"Fused Match ({types}): {score}% confidence",
+                    color="#8b5cf6",
+                    width=4
+                )
+                has_connections = True
+
+        # 3. Infrastructure links
+        if table_exists("infra_links") and table_exists("actor_infra_map"):
+            infra = query_rows("""
+                SELECT i.onion_address, i.clearnet_host, i.confidence_score
+                FROM infra_links i JOIN actor_infra_map m ON i.onion_address = m.onion_address
+                WHERE m.handle = ?
+            """, (handle,))
+            for inf in infra:
+                onion = inf["onion_address"]
+                net.add_node(onion, label=f"Onion: {onion[:10]}...", color="#ec4899", size=18, shape="star", title=f"Onion Host: {onion}")
+                net.add_edge(handle, onion, title=f"Infra Match: {inf['confidence_score']}%", color="#ec4899", width=2)
+                has_connections = True
+
+        if not has_connections:
+            st.caption("ℹ️ This actor currently has no detected PGP keys, crypto wallets, or candidate links.")
+        else:
+            html_code = net.generate_html()
+            components.html(html_code, height=440)
     except Exception as e:
         st.info("Interactive graph visualization fallback mode.")
 
