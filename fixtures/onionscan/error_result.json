@@ -1,0 +1,7 @@
+{
+  "hiddenService": "error_result.onion",
+  "onionScanVersion": "0.2.0",
+  "date": "2026-09-02T10:15:00Z",
+  "error": "onionscan: fatal: panic: runtime error while dialing SOCKS proxy (connection refused)",
+  "note": "Scanner crashed. Runner must save the error artifact, record an error status, and let the pipeline continue (EC-07)."
+}

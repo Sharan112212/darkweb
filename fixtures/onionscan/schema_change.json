@@ -1,0 +1,10 @@
+{
+  "hiddenService": "schema_change.onion",
+  "onionScanVersion": "99.0-unsupported",
+  "date": "2026-09-02T10:00:00Z",
+  "findings": {
+    "analytics": {"unexpected": "OnionScan changed its output layout — 'analyticsIDs' is now nested under 'findings'"},
+    "tls": [{"sha256": "aa11bb22", "note": "certificates are now objects, not fingerprint strings"}]
+  },
+  "note": "Unexpected/incompatible output schema (EC-07). Runner must flag a schema_error adapter-failure status and preserve the raw output, not silently emit wrong evidence."
+}

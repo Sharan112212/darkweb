@@ -95,6 +95,7 @@ services:
       - tor-hidden-data:/var/lib/tor
     networks:
       - lab-net
+      - scanner-net   # reachable by the isolated OnionScan container
     ports:
       - "9050:9050"
     healthcheck:
@@ -103,10 +104,43 @@ services:
       timeout: 5s
       retries: 3
 
+  # --- OnionScan (Branch 4): isolated, non-root, pinned OPSEC scanner ---
+  # NOT started by default (profile "scan"); no live scanning unless invoked, e.g.:
+  #   docker compose --profile scan run --rm onionscan --torProxyAddress tor:9050 <target>.onion
+  onionscan:
+    # EC-31: pin the upstream artifact. Replace the tag with the sha256 digest
+    # recorded in docs/sbom.md before any production/live use:
+    #   image: nao1215/onionscan@sha256:<digest-from-docs/sbom.md>
+    image: nao1215/onionscan:1.0.0
+    container_name: sih-onionscan
+    profiles: ["scan"]        # excluded from `docker compose up` — no live scan by default
+    depends_on:
+      - tor
+    environment:
+      # Route all scanner traffic through the Tor SOCKS proxy only.
+      TOR_PROXY_ADDRESS: "tor:9050"
+    networks:
+      - scanner-net          # internal-only: can reach Tor, but has NO egress
+    user: "1000:1000"        # non-root
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
 networks:
   lab-net:
     driver: bridge
     internal: false   # Egress restricted via firewall / policy rules
+  scanner-net:
+    driver: bridge
+    internal: true    # no external egress; OnionScan reaches only Tor on this net
 
 volumes:
   postgres-data:

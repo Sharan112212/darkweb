@@ -1,0 +1,9 @@
+{
+  "hiddenService": "timeout_result.onion",
+  "onionScanVersion": "0.2.0",
+  "date": "2026-09-02T09:45:00Z",
+  "status": "timeout",
+  "partial": true,
+  "analyticsIDs": [],
+  "note": "Scan aborted after hard timeout; partial/empty result. Runner must return a safe status record and 0 evidence units (EC-07)."
+}
