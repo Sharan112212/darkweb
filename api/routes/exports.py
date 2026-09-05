@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Header, Response, Query, Request, Depends
 from typing import Optional, List, Dict, Any
 from export.exporter import ExportEngine, ExportSnapshot
-from api.rbac import ROLE_HIERARCHY
+from api.rbac import ROLE_HIERARCHY, require_role, UserRole
 from db.repositories.export_repo import ExportRepository
 from db.repositories.link_repo import LinkRepository
 from db.repositories.audit_repo import AuditRepository
 
-router = APIRouter(prefix="/v1/exports", tags=["Exports"])
+router = APIRouter(prefix="/exports", tags=["Exports"])
 
 export_engine = ExportEngine()
 snapshots_store: Dict[str, ExportSnapshot] = {}
@@ -14,21 +14,16 @@ snapshots_store: Dict[str, ExportSnapshot] = {}
 def get_db_path(request: Request) -> Optional[str]:
     return getattr(request.app.state, "db_path", None)
 
-def verify_role(user_role: str, min_role: str):
-    user_level = ROLE_HIERARCHY.get(user_role, 0)
-    min_level = ROLE_HIERARCHY.get(min_role, 99)
-    if user_level < min_level:
-        raise HTTPException(status_code=403, detail=f"Forbidden: Role '{user_role}' lacks required permissions (minimum: '{min_role}').")
 
 @router.post("", response_model=Dict[str, Any])
 def create_export(
     payload: Dict[str, Any],
     request: Request,
-    x_user_role: str = Header("analyst", alias="X-User-Role"),
-    x_user_id: str = Header("analyst_1", alias="X-User-Id"),
+    user: dict = Depends(require_role([UserRole.analyst.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="analyst")
+    x_user_id = user.get("sub", "analyst_unknown")
+    x_user_role = user.get("role", "analyst")
     actors = payload.get("actors", [])
     candidate_links = payload.get("candidate_links", [])
     evidence_units = payload.get("evidence_units", [])
@@ -68,10 +63,9 @@ def create_export(
 @router.get("", response_model=List[Dict[str, Any]])
 def list_exports(
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
+    user: dict = Depends(require_role([UserRole.viewer.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="viewer")
     if db_path:
         return ExportRepository(db_path).list_all(limit=200)
     return [s.model_dump() for s in snapshots_store.values()]
@@ -80,10 +74,9 @@ def list_exports(
 def get_export(
     export_id: str,
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
+    user: dict = Depends(require_role([UserRole.viewer.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="viewer")
     if db_path:
         repo = ExportRepository(db_path)
         exp = repo.get_by_id(export_id)
@@ -99,9 +92,8 @@ def get_export(
 def download_export(
     export_id: str,
     format: str = Query("json", pattern="^(json|csv|pdf)$"),
-    x_user_role: str = Header("analyst", alias="X-User-Role")
+    user: dict = Depends(require_role([UserRole.analyst.value])),
 ):
-    verify_role(x_user_role, min_role="analyst")
     snapshot = snapshots_store.get(export_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail=f"Export snapshot '{export_id}' not found.")

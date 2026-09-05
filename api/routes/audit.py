@@ -4,31 +4,26 @@ from governance.audit import AuditStore
 from api.rbac import ROLE_HIERARCHY, require_role, UserRole
 from db.repositories.audit_repo import AuditRepository
 
-router = APIRouter(prefix="/v1/audit", tags=["Audit Log"])
+router = APIRouter(prefix="/audit", tags=["Audit Log"])
 
 global_audit_store = AuditStore()
 
 def get_db_path(request: Request) -> Optional[str]:
     return getattr(request.app.state, "db_path", None)
 
-def verify_role(user_role: str, min_role: str):
-    user_level = ROLE_HIERARCHY.get(user_role, 0)
-    min_level = ROLE_HIERARCHY.get(min_role, 99)
-    if user_level < min_level:
-        raise HTTPException(status_code=403, detail=f"Forbidden: Role '{user_role}' lacks required permissions (minimum: '{min_role}').")
 
 @router.get("", response_model=Dict[str, Any])
 def query_audit_log(
     request: Request,
-    x_user_role: str = Header("reviewer", alias="X-User-Role"),
     user_id: Optional[str] = Query(None),
     object_id: Optional[str] = Query(None),
     action: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    # Audit log is reviewer/admin only (JWT RBAC, consistent with the rest of the API)
+    user: dict = Depends(require_role([UserRole.reviewer.value, UserRole.admin.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="reviewer")
     if db_path:
         repo = AuditRepository(db_path)
         events = repo.list_events(limit=limit, offset=offset, object_id=object_id, user_id=user_id, action=action)

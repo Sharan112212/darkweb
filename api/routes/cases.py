@@ -6,7 +6,7 @@ from api.rbac import ROLE_HIERARCHY, require_role, UserRole
 from db.repositories.case_repo import CaseRepository
 from db.repositories.audit_repo import AuditRepository
 
-router = APIRouter(prefix="/v1/cases", tags=["Cases"])
+router = APIRouter(prefix="/cases", tags=["Cases"])
 
 # Global case manager singleton for in-memory / fast API usage
 case_manager = CaseManager()
@@ -14,11 +14,6 @@ case_manager = CaseManager()
 def get_db_path(request: Request) -> Optional[str]:
     return getattr(request.app.state, "db_path", None)
 
-def verify_role(user_role: str, min_role: str):
-    user_level = ROLE_HIERARCHY.get(user_role, 0)
-    min_level = ROLE_HIERARCHY.get(min_role, 99)
-    if user_level < min_level:
-        raise HTTPException(status_code=403, detail=f"Forbidden: Role '{user_role}' lacks required permissions (minimum: '{min_role}').")
 
 class CaseCreateRequest(BaseModel):
     title: Optional[str] = None
@@ -36,11 +31,10 @@ class NoteRequest(BaseModel):
 def create_case(
     payload: Dict[str, Any],
     request: Request,
-    x_user_role: str = Header("analyst", alias="X-User-Role"),
-    x_user_id: str = Header("analyst_1", alias="X-User-Id"),
+    user: dict = Depends(require_role([UserRole.analyst.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="analyst")
+    x_user_id = user.get("sub", "analyst_unknown")
     name = payload.get("name") or payload.get("title")
     description = payload.get("description", "")
     if not name or not name.strip():
@@ -74,12 +68,11 @@ def create_case(
 @router.get("", response_model=List[Dict[str, Any]])
 def list_cases(
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
     owner: Optional[str] = Query(None),
     created_by: Optional[str] = Query(None),
+    user: dict = Depends(require_role([UserRole.viewer.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="viewer")
     if db_path:
         repo = CaseRepository(db_path)
         target_owner = owner or created_by
@@ -94,10 +87,9 @@ def list_cases(
 def get_case(
     case_id: str,
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
+    user: dict = Depends(require_role([UserRole.viewer.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="viewer")
     if db_path:
         repo = CaseRepository(db_path)
         c = repo.get_by_id(case_id)
@@ -115,11 +107,10 @@ def add_case_note(
     case_id: str,
     payload: Dict[str, Any],
     request: Request,
-    x_user_role: str = Header("analyst", alias="X-User-Role"),
-    x_user_id: str = Header("analyst_1", alias="X-User-Id"),
+    user: dict = Depends(require_role([UserRole.analyst.value])),
     db_path: Optional[str] = Depends(get_db_path)
 ):
-    verify_role(x_user_role, min_role="analyst")
+    x_user_id = user.get("sub", "analyst_unknown")
     text = payload.get("text")
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="Field 'text' is required.")
@@ -145,10 +136,9 @@ def add_case_note(
 def set_legal_hold(
     case_id: str,
     payload: Dict[str, Any],
-    x_user_role: str = Header("reviewer", alias="X-User-Role"),
-    x_user_id: str = Header("reviewer_1", alias="X-User-Id")
+    user: dict = Depends(require_role([UserRole.reviewer.value])),
 ):
-    verify_role(x_user_role, min_role="reviewer")
+    x_user_id = user.get("sub", "reviewer_unknown")
     hold_status = payload.get("legal_hold", True)
     try:
         case = case_manager.set_legal_hold(case_id=case_id, hold_status=hold_status, updated_by=x_user_id)

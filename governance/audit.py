@@ -1,3 +1,5 @@
+from __future__ import annotations  # defer annotation eval (forward ref to Tuple_Bool_Reason)
+
 import hashlib
 import json
 from datetime import datetime, timezone
