@@ -1,7 +1,7 @@
 import os
 import tempfile
 import pytest
-from db.migrations.initial_schema import run_migration
+from db.migrations import run_migration
 
 @pytest.fixture
 def temp_db():

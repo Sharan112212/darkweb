@@ -2,6 +2,9 @@
 Database migrations package.
 """
 
-from db.migrations.initial_schema import run_migration
+import importlib
+
+_mod = importlib.import_module("db.migrations.001_initial_schema")
+run_migration = _mod.run_migration
 
 __all__ = ["run_migration"]
