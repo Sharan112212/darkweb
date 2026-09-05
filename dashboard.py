@@ -150,6 +150,66 @@ def render_evidence_drawer(link, other, key_prefix):
             st.caption("⚠️ Caveat: semantic similarity is supporting evidence only, not authorship proof.")
 
 
+def render_timeline(handle):
+    """
+    Branch 6 timeline tab: chronological events for an actor built from the demo
+    data (posts + relationship links). Uncertain times are visibly marked, and a
+    date range filter is shared with the rest of the profile view.
+    """
+    events = []
+
+    # post_observed events (observation time from the post)
+    posts = query_rows("SELECT timestamp, text FROM posts WHERE handle = ?", (handle,))
+    for p in posts:
+        ts = (p["timestamp"] or "").strip()
+        events.append({
+            "type": "post_observed",
+            "time": ts,
+            "approximate": ts == "",
+            "desc": (p["text"][:90] + "…") if p["text"] and len(p["text"]) > 90 else (p["text"] or ""),
+        })
+
+    # candidate_link_created events (from relationship links involving this actor)
+    if table_exists("relationship_links"):
+        links = query_rows(
+            "SELECT created_at, link_type, actor_a, actor_b FROM relationship_links WHERE actor_a = ? OR actor_b = ?",
+            (handle, handle),
+        )
+        for l in links:
+            other = l["actor_b"] if l["actor_a"] == handle else l["actor_a"]
+            events.append({
+                "type": "candidate_link_created",
+                "time": (l["created_at"] or "").strip(),
+                "approximate": False,
+                "desc": f"Link ({l['link_type']}) with {other}",
+            })
+
+    if not events:
+        st.info("No timeline events available for this actor.")  # explicit absence (EC-39)
+        return
+
+    # Date range filter (shared bound the graph/search views also use)
+    dated = [e for e in events if e["time"]]
+    if dated:
+        times = sorted(e["time"][:10] for e in dated)
+        try:
+            dmin = datetime.strptime(times[0], "%Y-%m-%d").date()
+            dmax = datetime.strptime(times[-1], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            dmin, dmax = date(2026, 1, 1), date(2026, 12, 31)
+        rng = st.date_input("📅 Timeline range", value=(dmin, dmax),
+                            min_value=dmin, max_value=dmax, key=f"tl_range_{handle}")
+        if isinstance(rng, tuple) and len(rng) == 2:
+            lo, hi = rng[0].isoformat(), rng[1].isoformat()
+            events = [e for e in events if (not e["time"]) or (lo <= e["time"][:10] <= hi)]
+
+    icon = {"post_observed": "💬", "candidate_link_created": "🔗"}
+    for e in sorted(events, key=lambda x: (x["time"] or "9999")):
+        when = e["time"] if e["time"] else "unknown time"
+        mark = " ⚠️ *approximate*" if e["approximate"] else ""
+        st.markdown(f"- {icon.get(e['type'], '•')} **{when}**{mark} — _{e['type']}_: {e['desc']}")
+
+
 # ============================================================
 # Custom CSS
 # ============================================================
@@ -492,6 +552,12 @@ if st.session_state.selected_actor is not None:
             st.info("No infrastructure correlation matches found for this specific actor.")
     else:
         st.info("Infrastructure links table not found. Run `db_setup.py` first.")
+
+    st.markdown("---")
+
+    # --- Timeline (Branch 6) ---
+    st.markdown("### 🕒 Timeline")
+    render_timeline(handle)
 
     st.markdown("---")
 
