@@ -1,0 +1,14 @@
+{
+  "description": "Short corpus fixture: Below eligibility gate thresholds (< 5 posts and < 1500 cleaned characters)",
+  "actor_a": "short_actor_1",
+  "actor_b": "short_actor_2",
+  "posts_a": [
+    "Short post 1 here.",
+    "Short post 2 here.",
+    "Short post 3 here."
+  ],
+  "posts_b": [
+    "Another short post from actor 2.",
+    "Just a quick note."
+  ]
+}
