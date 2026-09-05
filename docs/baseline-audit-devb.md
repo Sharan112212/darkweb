@@ -484,7 +484,7 @@ Schema is Dev B's to extend in a later phase (not now — HARD CONSTRAINT 1). Th
 
 ## EC-40 — synthetic content verification
 
-**Files checked:** `sample_data/personas.json` (10 personas), `sample_data/posts.json` (24 posts). These are the only files under `sample_data/`. Method: charset + base58check checksum validation of every wallet (script run during audit); manual read of every PGP fingerprint, `.onion`, and post body.
+**Files checked:** `sample_data/personas.json` (10 personas), `sample_data/posts.json` (22 posts). These are the only files under `sample_data/`. Method: charset + base58check checksum validation of every wallet (script run during audit); manual read of every PGP fingerprint, `.onion`, and post body.
 
 ### `sample_data/personas.json` — **NEEDS REVIEW**
 
@@ -508,7 +508,7 @@ The remaining wallets are safe placeholders — they **fail** validation and can
 
 ### `sample_data/posts.json` — **SYNTHETIC — SAFE**
 
-24 posts of fictional dark-web-marketplace marketing prose (e.g. GhostVendor/Nightshade99 vendor patter, `posts.json:2-8`; ViperX "zero day exploits" flavour text, `posts.json:27-30`). Verified:
+22 posts of fictional dark-web-marketplace marketing prose (e.g. GhostVendor/Nightshade99 vendor patter, `posts.json:2-8`; ViperX "zero day exploits" flavour text, `posts.json:27-30`). Verified:
 - No real credentials, data dumps, exploit code, or operational instructions — the "zero day" / "credential dumps" mentions are narrative flavour, not actual material.
 - No `.onion` addresses, no wallet/PGP strings, no URLs.
 - No personal data (no real names, emails, handles tied to real people).
