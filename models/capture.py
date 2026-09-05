@@ -9,9 +9,9 @@ class Capture(BaseModel):
     authorization_status: str = "approved"
     captured_at: str
     source_claimed_time: Optional[str] = None
-    http_status: int = 200
-    content_type: str = "text/html"
-    sha256: str
-    raw_object_reference: str
+    http_status: Optional[int] = 200
+    content_type: Optional[str] = "text/html"
+    sha256: Optional[str] = None
+    raw_object_reference: Optional[str] = None
     status: str = "succeeded"
     not_collected_reason: Optional[str] = None

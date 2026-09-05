@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Security Check - CAPTCHA Required</title>
+</head>
+<body>
+    <h1>Security Check</h1>
+    <p>Please solve the CAPTCHA challenge below to proceed to the vendor directory.</p>
+    <form id="captcha-form" action="/verify-captcha" method="POST">
+        <div class="g-recaptcha" data-sitekey="6LdTestSiteKey000000000000000000000"></div>
+        <input type="text" name="captcha_response" placeholder="Enter CAPTCHA code">
+        <button type="submit">Submit Challenge</button>
+    </form>
+</body>
+</html>
