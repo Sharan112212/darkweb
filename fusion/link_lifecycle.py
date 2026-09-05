@@ -50,20 +50,26 @@ class LinkLifecycleManager:
 
     def __init__(
         self,
-        link_repository: Optional[LinkRepository] = None,
+        link_repository: Optional[Union[LinkRepository, str, Any]] = None,
         db_path: Optional[str] = None,
     ):
-        if link_repository is not None:
+        if isinstance(link_repository, LinkRepository):
             self.link_repo = link_repository
-        else:
+        elif isinstance(link_repository, str) or link_repository is not None:
+            self.link_repo = LinkRepository(db_path_or_url=link_repository)
+        elif db_path:
             self.link_repo = LinkRepository(db_path_or_url=db_path)
+        else:
+            self.link_repo = LinkRepository()
 
     def transition_state(
         self,
         link: Union[CandidateLink, Dict[str, Any], str],
         new_state: Union[str, LinkState],
-        changed_by: str = "analyst",
+        changed_by: Optional[str] = None,
         reason: str = "Lifecycle state transition",
+        user_id: Optional[str] = None,
+        **kwargs: Any,
     ) -> CandidateLink:
         """
         Transitions a candidate link to a new lifecycle state.
@@ -74,6 +80,7 @@ class LinkLifecycleManager:
             new_state: Target state ('proposed', 'needs_review', 'accepted', 'rejected', 'superseded').
             changed_by: Identifier of the analyst or automated system making the change.
             reason: Mandatory explanation / rationale for the transition.
+            user_id: Alias for changed_by (for backward compatibility).
 
         Returns:
             Updated CandidateLink instance.
@@ -83,6 +90,8 @@ class LinkLifecycleManager:
         all_states = {s.value for s in LinkState}
         if target_state not in all_states:
             raise ValueError(f"Unknown state '{target_state}'. Valid states are: {sorted(list(all_states))}")
+
+        effective_changed_by = changed_by or user_id or "analyst"
 
         # Resolve link data
         if isinstance(link, str):
@@ -113,7 +122,7 @@ class LinkLifecycleManager:
         link_data["state"] = target_state
         link_data["link_version"] = next_version
         link_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        link_data["changed_by"] = changed_by
+        link_data["changed_by"] = effective_changed_by
         link_data["reason"] = reason
 
         # Persist to repository (creates immutable version record)
@@ -160,38 +169,46 @@ class LinkLifecycleManager:
     def submit_for_review(
         self,
         link: Union[CandidateLink, Dict[str, Any], str],
-        changed_by: str = "system",
+        changed_by: Optional[str] = None,
         reason: str = "Candidate link submitted for analyst review",
+        user_id: Optional[str] = None,
     ) -> CandidateLink:
         """Transitions candidate link to 'needs_review'."""
-        return self.transition_state(link, LinkState.needs_review.value, changed_by=changed_by, reason=reason)
+        actor = changed_by or user_id or "system"
+        return self.transition_state(link, LinkState.needs_review.value, changed_by=actor, reason=reason)
 
     def accept(
         self,
         link: Union[CandidateLink, Dict[str, Any], str],
-        changed_by: str = "analyst",
+        changed_by: Optional[str] = None,
         reason: str = "Candidate link accepted by analyst",
+        user_id: Optional[str] = None,
     ) -> CandidateLink:
         """Transitions candidate link to 'accepted'."""
-        return self.transition_state(link, LinkState.accepted.value, changed_by=changed_by, reason=reason)
+        actor = changed_by or user_id or "analyst"
+        return self.transition_state(link, LinkState.accepted.value, changed_by=actor, reason=reason)
 
     def reject(
         self,
         link: Union[CandidateLink, Dict[str, Any], str],
-        changed_by: str = "analyst",
+        changed_by: Optional[str] = None,
         reason: str = "Candidate link rejected by analyst",
+        user_id: Optional[str] = None,
     ) -> CandidateLink:
         """Transitions candidate link to 'rejected'."""
-        return self.transition_state(link, LinkState.rejected.value, changed_by=changed_by, reason=reason)
+        actor = changed_by or user_id or "analyst"
+        return self.transition_state(link, LinkState.rejected.value, changed_by=actor, reason=reason)
 
     def supersede(
         self,
         link: Union[CandidateLink, Dict[str, Any], str],
-        changed_by: str = "system",
+        changed_by: Optional[str] = None,
         reason: str = "Candidate link superseded by newer evidence/version",
+        user_id: Optional[str] = None,
     ) -> CandidateLink:
         """Transitions candidate link to 'superseded'."""
-        return self.transition_state(link, LinkState.superseded.value, changed_by=changed_by, reason=reason)
+        actor = changed_by or user_id or "system"
+        return self.transition_state(link, LinkState.superseded.value, changed_by=actor, reason=reason)
 
     def get_history(self, link_id: str) -> List[Dict[str, Any]]:
         """Retrieves immutable historical version snapshots for a candidate link."""

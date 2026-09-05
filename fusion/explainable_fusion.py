@@ -123,7 +123,7 @@ class ExplainableFusionEngine:
             prev_tier = previous_link.get("tier")
 
         if prev_score is not None and prev_tier is not None:
-            if abs(score - float(prev_score)) <= self.hysteresis_margin:
+            if round(abs(score - float(prev_score)), 6) <= self.hysteresis_margin:
                 return str(prev_tier)
 
         return raw_tier
