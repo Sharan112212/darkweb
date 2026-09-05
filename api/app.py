@@ -5,7 +5,7 @@ from api.audit_middleware import AuditMiddleware
 from api.routes import (
     auth_router, captures_router, evidence_router, links_router, health_router,
     graph_router, timeline_router, search_router, entities_router, actors_router,
-    audit_router, admin_router, cases_router, exports_router,
+    audit_router, admin_router, cases_router, exports_router
 )
 
 def create_app(db_path: Optional[str] = None) -> FastAPI:
