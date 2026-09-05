@@ -481,3 +481,44 @@ A feedback adapter that: makes writes carry `analyst_id` and an optional-but-rec
 Schema is Dev B's to extend in a later phase (not now — HARD CONSTRAINT 1). The audit records the target mapping above; the build will add provenance columns, an `audit_events` table, `candidate_link_versions`, and `timeline_events`, and widen the `relationship_links.link_type` CHECK to the full enum.
 
 ---
+
+## EC-40 — synthetic content verification
+
+**Files checked:** `sample_data/personas.json` (10 personas), `sample_data/posts.json` (24 posts). These are the only files under `sample_data/`. Method: charset + base58check checksum validation of every wallet (script run during audit); manual read of every PGP fingerprint, `.onion`, and post body.
+
+### `sample_data/personas.json` — **NEEDS REVIEW**
+
+**Concern: two wallet strings are checksum-valid, real-format Bitcoin mainnet addresses**, not obviously-fake placeholders:
+
+| Handle | Wallet | Result |
+|---|---|---|
+| Nightshade99 | `1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2` (`personas.json:38`) | **base58check VALID** (P2PKH). This is a widely-circulated example/test address from Bitcoin documentation and libraries — a real, format-correct mainnet address. |
+| GhostVendor | `3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5` (`personas.json:28`) | **base58check VALID** (P2SH). Checksum passes — a well-formed mainnet address. |
+
+The remaining wallets are safe placeholders — they **fail** validation and cannot be real addresses:
+- `bc1q...` addresses for DarkFox/DarkFox_v2, cipherqueen, moneymule_88 contain characters outside the bech32 charset (`b`, `i`, `o`) → invalid.
+- `1FghijK2LmnoPqrsTuvwXyzABC3DEfGhi4J` (pillcartel_x) and `1ViperX8888…` (ViperX) fail the base58check checksum → invalid.
+- `3GhIjKlmNoPqRsTuVwXyZ…` (redroom_admin) contains `I`/`l`, illegal in base58 → invalid.
+
+**PGP fingerprints:** all 10 are hand-patterned 40-hex-digit strings (e.g. `1122 33AA BBCC DD44 …`, `personas.json:27`). None is an exported key block; none resembles a real published fingerprint. **SAFE.**
+
+**Other:** no `.onion` addresses, no personal data, no illegal material. The `note` fields explicitly describe each persona as a test case.
+
+**Recommended remediation (do not apply now — HARD CONSTRAINT 1):** replace the two checksum-valid wallets with deliberately invalid strings (e.g. append an out-of-charset character or corrupt the checksum) so no address in the demo can resolve to a live mainnet address. This is what lets the team state honestly that the demo contains no live crypto identifiers.
+
+### `sample_data/posts.json` — **SYNTHETIC — SAFE**
+
+24 posts of fictional dark-web-marketplace marketing prose (e.g. GhostVendor/Nightshade99 vendor patter, `posts.json:2-8`; ViperX "zero day exploits" flavour text, `posts.json:27-30`). Verified:
+- No real credentials, data dumps, exploit code, or operational instructions — the "zero day" / "credential dumps" mentions are narrative flavour, not actual material.
+- No `.onion` addresses, no wallet/PGP strings, no URLs.
+- No personal data (no real names, emails, handles tied to real people).
+- The stylistic near-duplication between rebrand pairs (GhostVendor↔Nightshade99, ViperX↔ViperX_Reborn) is deliberate test scaffolding for the stylometry module.
+
+**Verdict table:**
+
+| File | Verdict | Notes |
+|---|---|---|
+| `sample_data/personas.json` | **NEEDS REVIEW** | 2 checksum-valid BTC mainnet addresses (Nightshade99 P2PKH, GhostVendor P2SH); replace with invalid placeholders. PGP/other content synthetic. |
+| `sample_data/posts.json` | **SYNTHETIC — SAFE** | Fictional prose; no real identifiers, no illegal material, no personal data. |
+
+---
