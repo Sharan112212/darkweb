@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Header, Response, Query, Request, Depends
 from typing import Optional, List, Dict, Any
-from export.exporter import ExportEngine, ExportSnapshot
-from api.rbac import ROLE_HIERARCHY
-from db.repositories.export_repo import ExportRepository
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, Query
+from pydantic import BaseModel
+from db.repositories.export_repo import ExportRepository, DISCLOSURE
 from db.repositories.link_repo import LinkRepository
 from db.repositories.audit_repo import AuditRepository
+from export.exporter import ExportEngine, ExportSnapshot
+from api.rbac import require_role, UserRole
 
-router = APIRouter(prefix="/v1/exports", tags=["Exports"])
+router = APIRouter(prefix="/exports", tags=["Exports"])
 
 export_engine = ExportEngine()
 snapshots_store: Dict[str, ExportSnapshot] = {}
@@ -14,94 +15,96 @@ snapshots_store: Dict[str, ExportSnapshot] = {}
 def get_db_path(request: Request) -> Optional[str]:
     return getattr(request.app.state, "db_path", None)
 
-def verify_role(user_role: str, min_role: str):
-    user_level = ROLE_HIERARCHY.get(user_role, 0)
-    min_level = ROLE_HIERARCHY.get(min_role, 99)
-    if user_level < min_level:
-        raise HTTPException(status_code=403, detail=f"Forbidden: Role '{user_role}' lacks required permissions (minimum: '{min_role}').")
+class ExportRequest(BaseModel):
+    export_type: str = "links"
+    entity_id: Optional[str] = None
+    actors: List[Dict[str, Any]] = []
+    candidate_links: List[Dict[str, Any]] = []
+    evidence_units: List[Dict[str, Any]] = []
+    case_id: Optional[str] = None
+    limitations: List[str] = []
 
-@router.post("", response_model=Dict[str, Any])
+@router.post("")
 def create_export(
-    payload: Dict[str, Any],
+    body: ExportRequest,
     request: Request,
-    x_user_role: str = Header("analyst", alias="X-User-Role"),
-    x_user_id: str = Header("analyst_1", alias="X-User-Id"),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="analyst")
-    actors = payload.get("actors", [])
-    candidate_links = payload.get("candidate_links", [])
-    evidence_units = payload.get("evidence_units", [])
-    case_id = payload.get("case_id")
-    limitations = payload.get("limitations", [])
+    user: dict = Depends(require_role([UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> Dict[str, Any]:
+    requester = user.get("sub", "analyst_unknown")
+    user_role = user.get("role", "analyst")
 
-    if db_path and not candidate_links and not actors and not evidence_units:
+    if db_path:
         links = LinkRepository(db_path).list_all(limit=10000)
-        entity_id = payload.get("entity_id") or (payload.get("scope", {}) if isinstance(payload.get("scope"), dict) else {}).get("entity_id")
-        if entity_id:
-            links = [l for l in links if l.get("left_entity_id") == entity_id or l.get("right_entity_id") == entity_id]
+        if body.entity_id:
+            links = [l for l in links if l.get("left_entity_id") == body.entity_id or l.get("right_entity_id") == body.entity_id]
+
         repo = ExportRepository(db_path)
         export_dict = repo.create_export({
-            "export_type": payload.get("export_type", "links"),
-            "requested_by": x_user_id,
-            "scope": {"entity_id": entity_id},
+            "export_type": body.export_type,
+            "requested_by": requester,
+            "scope": {"entity_id": body.entity_id},
             "snapshot": {"links": links, "link_count": len(links)},
         })
         AuditRepository(db_path).append({
-            "user_id": x_user_id, "action": "export_created", "object_id": export_dict["export_id"],
-            "details": {"export_type": payload.get("export_type", "links"), "link_count": len(links)},
+            "user_id": requester, "action": "export_created", "object_id": export_dict["export_id"],
+            "details": {"export_type": body.export_type, "link_count": len(links)},
         })
         return export_dict
 
     snapshot = export_engine.create_snapshot(
-        generated_by=x_user_id,
-        user_role=x_user_role,
-        actors=actors,
-        candidate_links=candidate_links,
-        evidence_units=evidence_units,
-        case_id=case_id,
-        limitations=limitations
+        generated_by=requester,
+        user_role=user_role,
+        actors=body.actors,
+        candidate_links=body.candidate_links,
+        evidence_units=body.evidence_units,
+        case_id=body.case_id,
+        limitations=body.limitations
     )
     snapshots_store[snapshot.export_id] = snapshot
-    return snapshot.model_dump()
 
-@router.get("", response_model=List[Dict[str, Any]])
+    out = snapshot.model_dump()
+    out["snapshot_sha256"] = snapshot.calculation_input_hash
+    return out
+
+@router.get("")
 def list_exports(
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="viewer")
+    user: dict = Depends(require_role([UserRole.viewer.value, UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> List[Dict[str, Any]]:
     if db_path:
         return ExportRepository(db_path).list_all(limit=200)
     return [s.model_dump() for s in snapshots_store.values()]
 
-@router.get("/{export_id}", response_model=Dict[str, Any])
+@router.get("/{export_id}")
 def get_export(
     export_id: str,
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="viewer")
+    user: dict = Depends(require_role([UserRole.viewer.value, UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> Dict[str, Any]:
     if db_path:
         repo = ExportRepository(db_path)
-        exp = repo.get_by_id(export_id)
-        if exp:
-            return exp
+        export_item = repo.get_by_id(export_id)
+        if not export_item:
+            raise HTTPException(status_code=404, detail=f"Export '{export_id}' not found")
+        return export_item
 
     snapshot = snapshots_store.get(export_id)
     if not snapshot:
-        raise HTTPException(status_code=404, detail=f"Export snapshot '{export_id}' not found.")
-    return snapshot.model_dump()
+        raise HTTPException(status_code=404, detail=f"Export '{export_id}' not found")
+
+    out = snapshot.model_dump()
+    out["snapshot_sha256"] = snapshot.calculation_input_hash
+    return out
 
 @router.get("/{export_id}/download")
 def download_export(
     export_id: str,
     format: str = Query("json", pattern="^(json|csv|pdf)$"),
-    x_user_role: str = Header("analyst", alias="X-User-Role")
+    user: dict = Depends(require_role([UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value]))
 ):
-    verify_role(x_user_role, min_role="analyst")
     snapshot = snapshots_store.get(export_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail=f"Export snapshot '{export_id}' not found.")

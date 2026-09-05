@@ -1,24 +1,18 @@
-from fastapi import APIRouter, HTTPException, Header, Query, Request, Depends
 from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Header
 from pydantic import BaseModel
-from cases.case_manager import CaseManager, Case
-from api.rbac import ROLE_HIERARCHY, require_role, UserRole
 from db.repositories.case_repo import CaseRepository
 from db.repositories.audit_repo import AuditRepository
+from cases.case_manager import CaseManager
+from api.rbac import require_role, UserRole, ROLE_HIERARCHY
 
-router = APIRouter(prefix="/v1/cases", tags=["Cases"])
+router = APIRouter(prefix="/cases", tags=["Case Management"])
 
-# Global case manager singleton for in-memory / fast API usage
+# In-memory case manager for Branch 9 governance engine
 case_manager = CaseManager()
 
 def get_db_path(request: Request) -> Optional[str]:
     return getattr(request.app.state, "db_path", None)
-
-def verify_role(user_role: str, min_role: str):
-    user_level = ROLE_HIERARCHY.get(user_role, 0)
-    min_level = ROLE_HIERARCHY.get(min_role, 99)
-    if user_level < min_level:
-        raise HTTPException(status_code=403, detail=f"Forbidden: Role '{user_role}' lacks required permissions (minimum: '{min_role}').")
 
 class CaseCreateRequest(BaseModel):
     title: Optional[str] = None
@@ -32,126 +26,128 @@ class CaseCreateRequest(BaseModel):
 class NoteRequest(BaseModel):
     text: str
 
-@router.post("", response_model=Dict[str, Any])
+@router.post("")
 def create_case(
-    payload: Dict[str, Any],
+    body: CaseCreateRequest,
     request: Request,
-    x_user_role: str = Header("analyst", alias="X-User-Role"),
-    x_user_id: str = Header("analyst_1", alias="X-User-Id"),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="analyst")
-    name = payload.get("name") or payload.get("title")
-    description = payload.get("description", "")
-    if not name or not name.strip():
-        raise HTTPException(status_code=400, detail="Field 'name' or 'title' is required.")
+    user: dict = Depends(require_role([UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> Dict[str, Any]:
+    """Create an analyst case (analyst+). Audited."""
+    case_title = (body.title or body.name or "").strip()
+    if not case_title:
+        raise HTTPException(status_code=400, detail="Case title is required")
+
+    owner = user.get("sub", "analyst_unknown")
+    entity_list = list(set(body.entity_ids + body.actor_ids))
+
+    # Sync with in-memory CaseManager
+    case_obj = case_manager.create_case(
+        name=case_title,
+        description=body.description,
+        created_by=owner,
+        actor_ids=entity_list,
+        link_ids=body.link_ids,
+        evidence_ids=body.evidence_ids
+    )
 
     if db_path:
         repo = CaseRepository(db_path)
         case_dict = repo.create_case({
-            "title": name,
-            "description": description,
-            "owner": x_user_id,
-            "link_ids": payload.get("link_ids", []),
-            "entity_ids": payload.get("entity_ids", payload.get("actor_ids", [])),
+            "case_id": case_obj.case_id,
+            "title": case_title,
+            "description": body.description,
+            "owner": owner,
+            "link_ids": body.link_ids,
+            "entity_ids": entity_list,
         })
         AuditRepository(db_path).append({
-            "user_id": x_user_id, "action": "case_created", "object_id": case_dict["case_id"],
-            "details": {"title": name},
+            "user_id": owner, "action": "case_created", "object_id": case_dict["case_id"],
+            "details": {"title": case_title},
         })
         return case_dict
 
-    case = case_manager.create_case(
-        name=name,
-        description=description,
-        created_by=x_user_id,
-        actor_ids=payload.get("actor_ids", payload.get("entity_ids", [])),
-        link_ids=payload.get("link_ids", []),
-        evidence_ids=payload.get("evidence_ids", [])
-    )
-    return case.model_dump()
+    return case_obj.model_dump()
 
-@router.get("", response_model=List[Dict[str, Any]])
+@router.get("")
 def list_cases(
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
     owner: Optional[str] = Query(None),
-    created_by: Optional[str] = Query(None),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="viewer")
+    limit: int = Query(100, ge=1, le=500),
+    user: dict = Depends(require_role([UserRole.viewer.value, UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> List[Dict[str, Any]]:
+    """List cases (optionally by owner)."""
     if db_path:
         repo = CaseRepository(db_path)
-        target_owner = owner or created_by
-        if target_owner:
-            return repo.list_by_owner(target_owner)
-        return repo.list_all()
+        if owner:
+            return repo.list_by_owner(owner, limit=limit)
+        return repo.list_all(limit=limit)
 
-    cases = case_manager.list_cases(created_by=created_by or owner)
+    cases = case_manager.list_cases(created_by=owner)
     return [c.model_dump() for c in cases]
 
-@router.get("/{case_id}", response_model=Dict[str, Any])
+@router.get("/{case_id}")
 def get_case(
     case_id: str,
     request: Request,
-    x_user_role: str = Header("viewer", alias="X-User-Role"),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="viewer")
+    user: dict = Depends(require_role([UserRole.viewer.value, UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> Dict[str, Any]:
     if db_path:
         repo = CaseRepository(db_path)
-        c = repo.get_by_id(case_id)
-        if not c:
-            raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
-        return c
+        case = repo.get_by_id(case_id)
+        if not case:
+            raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
+        return case
 
     case = case_manager.get_case(case_id)
     if not case:
-        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
     return case.model_dump()
 
-@router.post("/{case_id}/notes", response_model=Dict[str, Any])
+@router.post("/{case_id}/notes")
 def add_case_note(
     case_id: str,
-    payload: Dict[str, Any],
+    body: NoteRequest,
     request: Request,
-    x_user_role: str = Header("analyst", alias="X-User-Role"),
-    x_user_id: str = Header("analyst_1", alias="X-User-Id"),
-    db_path: Optional[str] = Depends(get_db_path)
-):
-    verify_role(x_user_role, min_role="analyst")
-    text = payload.get("text")
-    if not text or not text.strip():
-        raise HTTPException(status_code=400, detail="Field 'text' is required.")
+    user: dict = Depends(require_role([UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> Dict[str, Any]:
+    """Append a note to a case (analyst+). Note text is mandatory."""
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="Note text is required")
+
+    author = user.get("sub", "analyst_unknown")
 
     if db_path:
         repo = CaseRepository(db_path)
-        updated = repo.add_note(case_id, author=x_user_id, text=text)
+        updated = repo.add_note(case_id, author=author, text=body.text)
         if not updated:
-            raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+            raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
         AuditRepository(db_path).append({
-            "user_id": x_user_id, "action": "case_note_added", "object_id": case_id,
-            "details": {"text": text[:200]},
+            "user_id": author, "action": "case_note_added", "object_id": case_id,
+            "details": {"text": body.text[:200]},
         })
         return updated
 
     try:
-        case = case_manager.add_note(case_id=case_id, author=x_user_id, text=text)
-        return case.model_dump()
+        updated_case = case_manager.add_note(case_id, author=author, text=body.text)
+        return updated_case.model_dump()
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.post("/{case_id}/legal-hold", response_model=Dict[str, Any])
+@router.post("/{case_id}/legal-hold")
 def set_legal_hold(
     case_id: str,
     payload: Dict[str, Any],
-    x_user_role: str = Header("reviewer", alias="X-User-Role"),
-    x_user_id: str = Header("reviewer_1", alias="X-User-Id")
-):
-    verify_role(x_user_role, min_role="reviewer")
+    request: Request,
+    user: dict = Depends(require_role([UserRole.reviewer.value, UserRole.admin.value]))
+) -> Dict[str, Any]:
     hold_status = payload.get("legal_hold", True)
+    author = user.get("sub", "reviewer_1")
     try:
-        case = case_manager.set_legal_hold(case_id=case_id, hold_status=hold_status, updated_by=x_user_id)
-        return case.model_dump()
+        updated_case = case_manager.set_legal_hold(case_id=case_id, hold_status=hold_status, updated_by=author)
+        return updated_case.model_dump()
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
