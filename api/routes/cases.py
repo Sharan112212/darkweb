@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Header, Query, Request, Depends
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from cases.case_manager import CaseManager, Case
-from api.rbac import ROLE_HIERARCHY, require_role, UserRole
+from cases.case_manager import CaseManager
+from api.rbac import require_role, UserRole
 from db.repositories.case_repo import CaseRepository
 from db.repositories.audit_repo import AuditRepository
 

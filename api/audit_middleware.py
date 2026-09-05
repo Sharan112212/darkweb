@@ -54,8 +54,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
                     }
                 )
                 audit_repo.append(event)
-            except Exception as e:
-                # Audit logging failures must not break request processing but should log warning
+            except Exception:
+                # Audit logging failures must not break request processing.
                 pass
 
         response.headers["X-Request-ID"] = request_id

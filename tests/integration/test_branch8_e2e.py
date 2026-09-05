@@ -1,5 +1,4 @@
 import json
-import pytest
 from pathlib import Path
 from adapters.classical_stylometry_adapter import ClassicalStylometryAdapter
 from adapters.minilm_evidence_adapter import MiniLMEvidenceAdapter

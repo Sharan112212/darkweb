@@ -1,5 +1,4 @@
 import json
-import pytest
 from export.exporter import ExportEngine
 
 def test_export_engine_snapshot_and_render_formats():

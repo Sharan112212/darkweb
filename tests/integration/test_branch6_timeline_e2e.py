@@ -1,4 +1,3 @@
-import pytest
 from timeline.event_builder import TimelineEventBuilder
 from db.repositories.timeline_repo import TimelineRepository
 from models.evidence import EvidenceUnit

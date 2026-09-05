@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Header, Query, Request, Depends
-from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Query, Request, Depends
+from typing import Optional, Dict, Any
 from governance.audit import AuditStore
-from api.rbac import ROLE_HIERARCHY, require_role, UserRole
+from api.rbac import require_role, UserRole
 from db.repositories.audit_repo import AuditRepository
 
 router = APIRouter(prefix="/audit", tags=["Audit Log"])

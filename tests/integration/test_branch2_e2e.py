@@ -9,7 +9,6 @@ Collection (FixtureReplayer / CaptureManager)
   -> Query & Retrieval
 Also tests quarantine branch (EC-03) and offline status retention branch (EC-01).
 """
-import os
 from collection.fixture_replayer import FixtureReplayer
 from collection.normalizer import CollectionNormalizer
 from adapters.identity_evidence_adapter import IdentityEvidenceAdapter

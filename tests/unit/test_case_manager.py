@@ -1,4 +1,3 @@
-import pytest
 from cases.case_manager import CaseManager
 
 def test_case_manager_crud_and_references():

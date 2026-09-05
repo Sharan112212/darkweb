@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Header, Response, Query, Request, Depends
+from fastapi import APIRouter, HTTPException, Response, Query, Request, Depends
 from typing import Optional, List, Dict, Any
 from export.exporter import ExportEngine, ExportSnapshot
-from api.rbac import ROLE_HIERARCHY, require_role, UserRole
+from api.rbac import require_role, UserRole
 from db.repositories.export_repo import ExportRepository
 from db.repositories.link_repo import LinkRepository
 from db.repositories.audit_repo import AuditRepository

@@ -1,4 +1,3 @@
-import pytest
 from db.repositories.link_repo import LinkRepository
 from graph.networkx_projection import NetworkXProjection
 from graph.path_finder import PathFinder

@@ -1,4 +1,3 @@
-import pytest
 from export.exporter import ExportEngine
 
 def test_export_snapshot_version_lock():

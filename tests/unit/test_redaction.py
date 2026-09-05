@@ -1,4 +1,3 @@
-import pytest
 from governance.redaction import RedactionEngine
 
 def test_redaction_engine_viewer_vs_analyst():

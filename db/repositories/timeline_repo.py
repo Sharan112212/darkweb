@@ -3,7 +3,7 @@ TimelineRepository implementing persistence and timeline extraction for entities
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 import uuid
 from db.repositories.base import BaseRepository
 

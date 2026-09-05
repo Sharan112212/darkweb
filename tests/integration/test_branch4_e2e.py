@@ -1,4 +1,3 @@
-import pytest
 from scanners.onionscan_runner import OnionScanRunner
 from adapters.infra_evidence_adapter import InfraEvidenceAdapter
 from fusion.explainable_fusion import ExplainableFusionEngine

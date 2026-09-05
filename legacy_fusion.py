@@ -17,7 +17,6 @@ USAGE:
 """
 import sqlite3
 import os
-import math
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "scraper", "darkweb_intel.db")
 

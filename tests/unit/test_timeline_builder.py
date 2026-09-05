@@ -1,4 +1,3 @@
-import pytest
 from timeline.event_builder import TimelineEventBuilder
 from models.evidence import EvidenceUnit
 from models.candidate_link import CandidateLink

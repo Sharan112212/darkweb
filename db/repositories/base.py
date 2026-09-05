@@ -27,13 +27,11 @@ class BaseRepository(ABC):
     @abstractmethod
     def table_name(self) -> str:
         """The target database table name."""
-        pass
 
     @property
     @abstractmethod
     def primary_key(self) -> str:
         """The primary key column name for this table."""
-        pass
 
     @property
     def json_columns(self) -> Set[str]:
@@ -120,4 +118,3 @@ class BaseRepository(ABC):
     @abstractmethod
     def save(self, entity: Dict[str, Any]) -> Dict[str, Any]:
         """Persist or update an entity."""
-        pass

@@ -1,4 +1,3 @@
-import pytest
 from timeline.event_builder import TimelineEventBuilder, confidence_label
 from models.evidence import EvidenceUnit
 

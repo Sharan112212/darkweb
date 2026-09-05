@@ -36,17 +36,6 @@ class NormalizedPayload(BaseModel):
     raw_metadata: Dict[str, Any] = Field(default_factory=dict)
     quarantine_reason: Optional[str] = None
 
-    def __iter__(self):
-        yield self.extracted_text or ""
-        yield {
-            "status": self.processing_status,
-            "mime_type": self.mime_type,
-            "size_bytes": self.content_size_bytes,
-            "reason": self.quarantine_reason or "",
-            "quarantine_reason": self.quarantine_reason,
-            "metadata": self.metadata,
-        }
-
     def _to_meta_dict(self) -> Dict[str, Any]:
         """Builds combined metadata dictionary for tuple unpacking."""
         meta: Dict[str, Any] = {

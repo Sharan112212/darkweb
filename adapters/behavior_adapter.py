@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from adapters.base_adapter import BaseAdapter
 from analysis.behavior_engine import BehaviorEngine
 from models.evidence import EvidenceUnit
@@ -83,7 +83,7 @@ class BehaviorAdapter(BaseAdapter):
         if time_sim >= 0.50:
             units.append(self._create_unit(
                 indicator_type=IndicatorType.posting_time_pattern.value,
-                indicator_value=f"time_pattern_24h_utc",
+                indicator_value="time_pattern_24h_utc",
                 linked_pair=linked_pair,
                 confidence_weight=min(0.70, time_sim),
                 capture_id=capture_id,
@@ -98,7 +98,7 @@ class BehaviorAdapter(BaseAdapter):
         if vocab_sim >= 0.15:
             units.append(self._create_unit(
                 indicator_type=IndicatorType.vocabulary_overlap.value,
-                indicator_value=f"vocab_overlap_jaccard",
+                indicator_value="vocab_overlap_jaccard",
                 linked_pair=linked_pair,
                 confidence_weight=min(0.65, vocab_sim),
                 capture_id=capture_id,

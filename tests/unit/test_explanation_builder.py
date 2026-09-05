@@ -1,4 +1,3 @@
-import pytest
 from fusion.explanation_builder import ExplanationBuilder
 from models.evidence import EvidenceUnit
 

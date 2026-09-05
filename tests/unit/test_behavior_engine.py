@@ -1,4 +1,3 @@
-import pytest
 from analysis.behavior_engine import BehaviorEngine
 
 def test_posting_time_histogram_and_similarity():

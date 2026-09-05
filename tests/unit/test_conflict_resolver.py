@@ -10,7 +10,6 @@ Tests:
 - Dict and CandidateLink object interoperability.
 - identify_conflicts grouped mapping method.
 """
-import pytest
 from fusion.conflict_resolver import ConflictResolver
 from models.candidate_link import CandidateLink
 from models.enums import Tier, LinkState, ScoreStatus
