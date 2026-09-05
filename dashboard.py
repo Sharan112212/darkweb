@@ -210,71 +210,6 @@ def render_timeline(handle):
         st.markdown(f"- {icon.get(e['type'], '•')} **{when}**{mark} — _{e['type']}_: {e['desc']}")
 
 
-def render_network_graph(center_handle=None):
-    """
-    Renders an interactive Pyvis 2D visual network graph in Streamlit (EC-38, Branch 5/10).
-    Nodes = Threat actors / personas.
-    Edges = Candidate links styled by tier/score.
-    """
-    import tempfile
-    import streamlit.components.v1 as components
-    from pyvis.network import Network
-    from graph.networkx_projection import NetworkXProjection
-
-    proj = NetworkXProjection()
-    proj.sync_from_db(db_path=DB_PATH)
-
-    if center_handle:
-        subg = proj.get_subgraph(center_handle, depth=2, limit=50)
-        nodes = subg.get("nodes", [])
-        edges = subg.get("edges", [])
-    else:
-        full_proj = proj.get_projection()
-        nodes = full_proj.get("nodes", [])
-        edges = full_proj.get("edges", [])
-
-    if not nodes or not edges:
-        st.info("No network connections found to display in the graph.")
-        return
-
-    net = Network(height="450px", width="100%", bgcolor="#0a0a0a", font_color="#ffffff", directed=False)
-    net.options.physics.enabled = True
-
-    # Add nodes
-    for n in nodes:
-        nid = n["id"]
-        is_center = (nid == center_handle)
-        color = "#00ff88" if is_center else "#4ecdc4"
-        size = 28 if is_center else 18
-        net.add_node(nid, label=nid, title=f"Actor: {nid}", color=color, size=size)
-
-    # Add edges
-    for e in edges:
-        u, v = e["source"], e["target"]
-        score = float(e.get("score", 0.0))
-        tier = e.get("tier", "unresolved")
-        link_id = e.get("link_id", "")
-
-        # Color by tier
-        if score >= 0.85 or tier == "observed_technical_identity":
-            edge_color = "#00ff88"  # Green
-        elif score >= 0.65 or tier == "likely_same_actor":
-            edge_color = "#ffd93d"  # Amber
-        else:
-            edge_color = "#8888aa"  # Grey
-
-        width = max(1.5, score * 4)
-        title = f"Link: {u} ↔ {v}\nScore: {score:.2f}\nTier: {tier}\nID: {link_id}"
-        net.add_edge(u, v, value=score, title=title, color=edge_color, width=width)
-
-    tmp_file = os.path.join(tempfile.gettempdir(), f"graph_{center_handle or 'all'}.html")
-    net.save_graph(tmp_file)
-    with open(tmp_file, "r", encoding="utf-8") as f:
-        html_code = f.read()
-
-    components.html(html_code, height=470, scrolling=False)
-
-
 # ============================================================
 # Custom CSS
 # ============================================================
@@ -509,9 +444,54 @@ if st.session_state.selected_actor is not None:
 
     st.markdown("---")
 
-    # --- Visual Ego Network Graph (Branch 5 / Branch 10) ---
-    st.markdown("### 🕸️ Visual Network Graph Explorer")
-    render_network_graph(handle)
+    # --- Interactive Network Graph (Maltego View) ---
+    st.markdown("### 🕸️ Interactive Network Graph (Maltego View)")
+    try:
+        from pyvis.network import Network
+        import streamlit.components.v1 as components
+
+        net = Network(height="400px", width="100%", bgcolor="#0f172a", font_color="#f8fafc", notebook=False)
+        net.barnes_hut(gravity=-3000, central_gravity=0.3, spring_length=120)
+
+        # Center node
+        net.add_node(handle, label=handle, color="#10b981", size=30, title=f"Actor: {handle} (Center)")
+
+        # PGP node
+        if pgp and pgp != "None":
+            pgp_short = pgp[:12] + "..."
+            net.add_node(pgp_short, label=f"PGP: {pgp_short}", color="#f59e0b", size=18, shape="diamond", title=f"PGP Key: {pgp}")
+            net.add_edge(handle, pgp_short, title="Published PGP Key", color="#f59e0b", width=2)
+
+        # Wallet node
+        if wallet and wallet != "None":
+            w_short = wallet[:12] + "..."
+            net.add_node(w_short, label=f"Wallet: {w_short}", color="#3b82f6", size=18, shape="box", title=f"Wallet: {wallet}")
+            net.add_edge(handle, w_short, title="Crypto Wallet", color="#3b82f6", width=2)
+
+        # Connected links
+        if table_exists("relationship_links"):
+            links = query_rows("""
+                SELECT actor_a, actor_b, link_type, evidence, confidence_score
+                FROM relationship_links WHERE actor_a = ? OR actor_b = ?
+            """, (handle, handle))
+            for l in links:
+                other = l["actor_b"] if l["actor_a"] == handle else l["actor_a"]
+                score = l["confidence_score"]
+                ltype = l["link_type"]
+                edge_color = "#10b981" if score >= 90 else ("#f59e0b" if score >= 70 else "#ef4444")
+                
+                net.add_node(other, label=other, color="#06b6d4", size=22, title=f"Linked Actor: {other}")
+                net.add_edge(
+                    handle, other,
+                    title=f"Link ({ltype}): {score}% confidence",
+                    color=edge_color,
+                    width=max(1, int(score / 20))
+                )
+
+        html_code = net.generate_html()
+        components.html(html_code, height=420)
+    except Exception as e:
+        st.info("Interactive graph visualization fallback mode.")
 
     st.markdown("---")
 
@@ -772,12 +752,6 @@ else:
     actors_df = query_df(sql, tuple(params))
 
     # --- Results ---
-    st.markdown("---")
-
-    # --- Visual Network Graph ---
-    with st.expander("🕸️ Visual Threat Actor Network Graph (Interactive Node-and-Edge Explorer)", expanded=True):
-        render_network_graph()
-
     st.markdown("---")
 
     if actors_df.empty:
