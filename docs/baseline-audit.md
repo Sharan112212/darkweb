@@ -121,3 +121,71 @@ For each group it splits the concatenated handles on `||` and forms all pairs wi
 An `identity_evidence_adapter` that wraps `run_identity_graph`'s output and adds: `indicator_type` (`pgp_fingerprint` / `wallet_address`), an `indicator_role` field to close EC-10 (`key_published` vs `verified_signature`) and EC-09 (wallet role), a provenance block (capture ID, source URL, observed-at timestamp, content hash), and PGP-fingerprint normalisation (strip whitespace, upper-case) to close EC-11 before comparison.
 
 ---
+
+## Module: stylometry
+
+| Field | Finding |
+|---|---|
+| File path | `stylometry.py` |
+| Entry point | `run_stylometry()` — no args, returns `links_created` (int). CLI at `stylometry.py:142`. |
+| Language / runtime | Python 3 + `sentence-transformers` (imported lazily inside the function, `stylometry.py:32-37`). |
+| Input format | `SELECT handle, text FROM posts ORDER BY handle` (`stylometry.py:43`). |
+| Output format | Writes `relationship_links` with `link_type='stylometric'` (`stylometry.py:127`). |
+| Dependencies | `sqlite3`, `os`, `warnings`, `itertools`; `sentence_transformers.SentenceTransformer`, `util` (`stylometry.py:33`). |
+| Current test data | `sample_data/posts.json` — GhostVendor↔Nightshade99 (hard rebrand, style-only), ViperX↔ViperX_Reborn. |
+| Test coverage | **None.** |
+
+### What it actually does
+
+1. Loads all posts, groups text per handle, concatenates each actor's posts into one blob joined by spaces (`stylometry.py:52-63`).
+2. Loads SBERT — from `models/all-MiniLM-L6-v2/` if it exists, else downloads by name (`stylometry.py:73-79`).
+3. `model.encode(texts, convert_to_tensor=True)` — one embedding per actor (`stylometry.py:82`).
+4. All pairwise `util.cos_sim` over `combinations(range(len(handles)), 2)` (`stylometry.py:93-96`).
+5. Writes every pair with `sim >= SIMILARITY_THRESHOLD` (`stylometry.py:113-133`).
+
+### Model loading — pinned or runtime? (EC-37)
+
+- Model is `MODEL_NAME = "all-MiniLM-L6-v2"` (`stylometry.py:27`) — **pinned by name only, not by hash or version.**
+- Air-gap capable *if* `models/all-MiniLM-L6-v2/` is pre-populated by `download_model.py`: the code prefers the local dir (`stylometry.py:74-76`). But the fallback path (`stylometry.py:78-79`) fetches from the network at runtime, so an air-gapped run with an empty `models/` dir fails. There is no integrity check on the cached weights (no hash pin) — EC-37 is only partially satisfied.
+
+### Similarity threshold — literal or configurable?
+
+`SIMILARITY_THRESHOLD = 0.75` — `stylometry.py:24`. A hardcoded module-level literal. The comment cites the TRD and says *"tune after seeing results"* (`stylometry.py:23`). Not read from config or CLI. The written confidence is `int(round(sim * 100))` (`stylometry.py:120`) — i.e. the confidence *is* the cosine score rescaled, with no calibration.
+
+### The `link_type` string — does it overstate? (SUBSTANTIVE FINDING)
+
+The literal written to the DB is **`'stylometric'`** (`stylometry.py:127`). The evidence string is `f"Writing style similarity score: {sim:.4f} (Sentence-BERT cosine similarity)"` (`stylometry.py:121`). The dashboard renders this under the heading **"🧠 Linked via Writing Style (AI Stylometry)"** (`dashboard.py:369`).
+
+**This label overstates what the measurement demonstrates.** What is actually computed is the cosine similarity between two *sentence-embedding* vectors produced by `all-MiniLM-L6-v2` — a **semantic** similarity model. It measures *what the posts are about*, not *how the author writes*. Two different vendors both posting terse "fresh stock, quality checked, DM me" ads will score high on semantic similarity while sharing no authorial fingerprint. Classical stylometry (function-word frequencies, character n-grams, punctuation/idiolect features) is **not implemented anywhere**. Calling this "stylometry" / "writing style" attributes authorship-level evidentiary weight to what is really topic/register similarity. This should be relabelled `semantic_similarity` in the enum, with `classical_stylometry` reserved for a real stylometric signal that does not yet exist. Migration note recorded in `docs/indicator-types.md`.
+
+### Corpus gates (min post count / char count / language)
+
+**CONFIRMED ABSENT.** The only gate is truthiness: `if text and text.strip()` per post (`stylometry.py:54`) and `if combined:` per actor (`stylometry.py:62`). An actor with a single 5-word post is embedded and compared exactly like one with 50 posts. No minimum post count, no minimum character count. This is exactly the EC that lets a two-word actor generate a spurious high-similarity link.
+
+### Text cleaning before embedding (EC-21)
+
+**CONFIRMED ABSENT.** Text is used verbatim — only `.strip()` and space-join (`stylometry.py:57`, `:61`). Templates, quoted text, PGP blocks, and signatures are **not** stripped. In this corpus the posts are already prose, but boilerplate ("stay safe out there fam", "Professionalism is expected from all buyers") is repeated across a single actor's own posts and drives self-similarity; shared boilerplate across actors would inflate cross-actor scores.
+
+### Language detection (EC-19)
+
+**CONFIRMED ABSENT.** No language detection at any point. All posts are embedded regardless of language; cross-language similarity is neither checked nor flagged.
+
+### Where post text comes from / dedup
+
+`posts.text` via `SELECT handle, text FROM posts ORDER BY handle` (`stylometry.py:43`). **No deduplication** of posts — if the scraper inserts the same post twice, it is counted twice in the concatenation, biasing that actor's embedding. Dedup exists only at the *link* level (`stylometry.py:84-88` reads existing `'stylometric'` pairs to skip), not the post level.
+
+### Security concerns
+
+- Runtime model download on cache miss (`stylometry.py:78-79`) violates air-gap assumptions and is a supply-chain surface — no hash pin (EC-37).
+- The `'stylometric'` label + "AI Stylometry" UI heading overstate the evidence, risking analyst over-trust of a semantic-similarity score presented as authorship (`stylometry.py:127`, `dashboard.py:369`).
+
+### Data-provenance gaps
+
+- Same as identity graph: no capture ID, source URL, observation timestamp, or evidence hash on the written link (`stylometry.py:124-128`).
+- The similarity score is not reproducible without recording the model version/hash — none is stored.
+
+### Adapter required
+
+A `stylometry_evidence_adapter` that: relabels output as `semantic_similarity` (not stylometric); records the model name + weights hash for reproducibility (EC-37); enforces corpus gates — minimum post count and character count before a pair is emitted; strips boilerplate/templates/PGP/signatures (EC-21); adds language detection and gates or flags cross-language pairs (EC-19); and attaches the provenance block.
+
+---
