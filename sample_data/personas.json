@@ -25,7 +25,7 @@
     "category": "arms",
     "source": "Obsidian Forum",
     "pgp_fingerprint": "1122 33AA BBCC DD44 5566  7788 99EE FF00 1234 5678",
-    "wallet_address": "3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5",
+    "wallet_address": "3GhostVendorFakeWallet000000000000",
     "status": "inactive",
     "last_seen": "2026-05-14",
     "note": "Persona B before rebrand - no shared identifiers with its replacement"
@@ -35,7 +35,7 @@
     "category": "arms",
     "source": "Obsidian Forum",
     "pgp_fingerprint": "AABB CCDD 0099 8877 6655  4433 2211 0FED CBA9 8765",
-    "wallet_address": "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+    "wallet_address": "1NightshadeFakeWallet000000000000",
     "status": "active",
     "last_seen": "2026-08-01",
     "note": "HARD REBRAND CASE: completely different PGP key and wallet from GhostVendor. Only writing style (see posts.json) links them. This is the case your stylometry module must catch."
