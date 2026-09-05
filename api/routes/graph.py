@@ -1,7 +1,6 @@
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from typing import Optional
+from fastapi import APIRouter, Depends, Query, Request
 from graph.networkx_projection import NetworkXProjection
-from graph.neo4j_projection import Neo4jProjection
 from graph.path_finder import PathFinder
 from api.rbac import require_role, UserRole
 

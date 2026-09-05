@@ -7,10 +7,9 @@ Tests:
 - Entity pair ordering normalization (alphabetical min/max).
 - Independence group deduplication per EC-24 (mirrors/duplicates do not inflate scores).
 """
-import hashlib
 import pytest
 from fusion.explainable_fusion import ExplainableFusionEngine
-from models.enums import IndicatorType, Tier, ScoreStatus, LinkState
+from models.enums import IndicatorType, Tier
 from models.evidence import EvidenceUnit
 
 

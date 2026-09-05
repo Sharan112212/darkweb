@@ -1,6 +1,5 @@
-import math
 import networkx as nx
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from graph.base_graph import BaseGraphProjection
 from db.repositories.link_repo import LinkRepository
 

@@ -1,14 +1,13 @@
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, Query, Request, Header
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from pydantic import BaseModel
 from db.repositories.case_repo import CaseRepository
 from db.repositories.audit_repo import AuditRepository
 from cases.case_manager import CaseManager
-from api.rbac import require_role, UserRole, ROLE_HIERARCHY
+from api.rbac import require_role, UserRole
 
 router = APIRouter(prefix="/cases", tags=["Case Management"])
 
-# In-memory case manager for Branch 9 governance engine
 case_manager = CaseManager()
 
 def get_db_path(request: Request) -> Optional[str]:
@@ -41,7 +40,6 @@ def create_case(
     owner = user.get("sub", "analyst_unknown")
     entity_list = list(set(body.entity_ids + body.actor_ids))
 
-    # Sync with in-memory CaseManager
     case_obj = case_manager.create_case(
         name=case_title,
         description=body.description,
@@ -73,18 +71,20 @@ def create_case(
 def list_cases(
     request: Request,
     owner: Optional[str] = Query(None),
+    created_by: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=500),
     user: dict = Depends(require_role([UserRole.viewer.value, UserRole.analyst.value, UserRole.reviewer.value, UserRole.admin.value])),
     db_path: Optional[str] = Depends(get_db_path),
 ) -> List[Dict[str, Any]]:
     """List cases (optionally by owner)."""
+    target_owner = owner or created_by
     if db_path:
         repo = CaseRepository(db_path)
-        if owner:
-            return repo.list_by_owner(owner, limit=limit)
+        if target_owner:
+            return repo.list_by_owner(target_owner, limit=limit)
         return repo.list_all(limit=limit)
 
-    cases = case_manager.list_cases(created_by=owner)
+    cases = case_manager.list_cases(created_by=target_owner)
     return [c.model_dump() for c in cases]
 
 @router.get("/{case_id}")

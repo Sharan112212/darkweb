@@ -1,4 +1,3 @@
-import pytest
 from governance.audit import TamperEvidentAuditChain
 
 def test_tamper_evident_audit_chain_verification():

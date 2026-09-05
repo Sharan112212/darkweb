@@ -8,7 +8,7 @@ later change to the underlying data does not alter an already-created export
 """
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 import uuid
 from db.repositories.base import BaseRepository
 

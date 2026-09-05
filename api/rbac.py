@@ -2,7 +2,7 @@ import os
 import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from fastapi import Request, HTTPException, Security, Depends
+from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from models.enums import UserRole
 

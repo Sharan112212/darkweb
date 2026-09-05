@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, Request
 from db.repositories.entity_repo import EntityRepository
 from db.repositories.link_repo import LinkRepository

@@ -1,28 +1,27 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from db.repositories.audit_repo import AuditRepository
 from governance.audit import AuditStore
 from api.rbac import require_role, UserRole
 
-router = APIRouter(prefix="/audit", tags=["Audit Trail"])
+router = APIRouter(prefix="/audit", tags=["Audit Log"])
 
 global_audit_store = AuditStore()
 
 def get_db_path(request: Request) -> Optional[str]:
     return getattr(request.app.state, "db_path", None)
 
-@router.get("")
-def list_audit_events(
+@router.get("", response_model=Dict[str, Any])
+def query_audit_log(
     request: Request,
-    object_id: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
+    object_id: Optional[str] = Query(None),
     action: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     user: dict = Depends(require_role([UserRole.reviewer.value, UserRole.admin.value])),
-    db_path: Optional[str] = Depends(get_db_path),
+    db_path: Optional[str] = Depends(get_db_path)
 ) -> Dict[str, Any]:
-    """Query the append-only audit log (reviewer/admin only)."""
     if db_path:
         repo = AuditRepository(db_path)
         events = repo.list_events(limit=limit, offset=offset, object_id=object_id,

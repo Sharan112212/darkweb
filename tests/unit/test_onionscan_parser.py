@@ -1,5 +1,4 @@
-import pytest
-from scanners.onionscan_parser import OnionScanParser, INDICATOR_WEIGHTS
+from scanners.onionscan_parser import OnionScanParser
 from models.enums import IndicatorType
 
 def test_onionscan_parser_weights_and_types():

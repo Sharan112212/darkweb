@@ -1,4 +1,3 @@
-import pytest
 from adapters.behavior_adapter import BehaviorAdapter
 from fusion.explainable_fusion import ExplainableFusionEngine
 from db.repositories.evidence_repo import EvidenceRepository

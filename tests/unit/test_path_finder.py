@@ -1,4 +1,3 @@
-import pytest
 from graph.networkx_projection import NetworkXProjection
 from graph.path_finder import PathFinder
 

@@ -1,8 +1,7 @@
 import re
 import math
-import hashlib
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Tuple, Set, Optional
+from typing import List, Dict, Any, Tuple, Set
 
 ENGLISH_STOPWORDS: Set[str] = {
     "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",

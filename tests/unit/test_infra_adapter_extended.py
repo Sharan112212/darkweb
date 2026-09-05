@@ -1,4 +1,3 @@
-import pytest
 from datetime import datetime, timezone, timedelta
 from adapters.infra_evidence_adapter import InfraEvidenceAdapter
 from models.enums import IndicatorType

@@ -3,7 +3,7 @@ Base Adapter Module for the SIH26151 Dark-Web Threat Actor Attribution Platform.
 Defines the abstract contract for all local evidence adapters.
 """
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any
 from models.evidence import EvidenceUnit
 
 

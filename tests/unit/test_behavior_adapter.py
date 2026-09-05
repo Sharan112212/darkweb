@@ -1,4 +1,3 @@
-import pytest
 from adapters.behavior_adapter import BehaviorAdapter
 from models.enums import IndicatorType
 

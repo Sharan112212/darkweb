@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Any
 from models.evidence import EvidenceUnit
 
 class BaseScanner(ABC):
@@ -21,4 +21,3 @@ class BaseScanner(ABC):
         Returns:
             List of EvidenceUnit records representing infrastructure evidence.
         """
-        pass

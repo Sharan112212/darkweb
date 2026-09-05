@@ -17,7 +17,7 @@ from db.repositories.link_repo import LinkRepository
 from fusion.explainable_fusion import ExplainableFusionEngine
 from fusion.conflict_resolver import ConflictResolver
 from fusion.link_lifecycle import LinkLifecycleManager
-from models.enums import Tier, LinkState, ScoreStatus
+from models.enums import Tier, LinkState
 
 
 def test_branch3_e2e_full_attribution_lifecycle(temp_db):

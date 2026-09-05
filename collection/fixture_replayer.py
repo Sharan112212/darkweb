@@ -137,22 +137,6 @@ class FixtureReplayer:
         with open(file_path, "rb") as f:
             return f.read()
 
-    def fetch_fixture(
-        self,
-        url: str,
-        source_id: Optional[str] = None,
-        stage: Optional[Union[str, int]] = None,
-    ) -> Tuple[Capture, bytes]:
-        """
-        Replays a fixture URL and returns tuple of (Capture, content_bytes).
-        """
-        capture = self.replay_url(url, source_id=source_id, stage=stage)
-        try:
-            content_bytes = self.get_fixture_bytes(url, stage=stage)
-        except Exception:
-            content_bytes = b""
-        return capture, content_bytes
-
     def replay_url(
         self,
         url: str,

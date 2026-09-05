@@ -1,4 +1,3 @@
-import pytest
 from graph.networkx_projection import NetworkXProjection
 from db.repositories.link_repo import LinkRepository
 
