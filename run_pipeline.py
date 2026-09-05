@@ -124,7 +124,10 @@ if __name__ == "__main__":
     run_step("Step 3: Running stylometric analysis (AI writing style)", run_stylometry)
 
     # Step 4: Multi-signal Fusion
-    from fusion import run_fusion
+    # Imports the legacy standalone Noisy-OR module (legacy_fusion.py). It was
+    # renamed from fusion.py because Branch 3 introduced a `fusion/` package
+    # (explainable engine) whose name would otherwise shadow this module.
+    from legacy_fusion import run_fusion
     run_step("Step 4: Running Multi-Signal Fusion engine (Noisy-OR)", run_fusion)
 
     # Final summary
