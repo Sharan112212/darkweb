@@ -14,6 +14,7 @@ USAGE:
        python scraper.py --onion <your-onion-address>.onion
 """
 import argparse
+import os
 import re
 import sqlite3
 import requests
@@ -24,7 +25,9 @@ TOR_PROXY = {
     "https": "socks5h://127.0.0.1:9050",
 }
 
-DB_PATH = "darkweb_intel.db"
+# Write to the same DB every analysis module reads (scraper/darkweb_intel.db),
+# independent of the current working directory.
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "darkweb_intel.db")
 
 
 def init_db():
