@@ -189,3 +189,103 @@ The literal written to the DB is **`'stylometric'`** (`stylometry.py:127`). The 
 A `stylometry_evidence_adapter` that: relabels output as `semantic_similarity` (not stylometric); records the model name + weights hash for reproducibility (EC-37); enforces corpus gates — minimum post count and character count before a pair is emitted; strips boilerplate/templates/PGP/signatures (EC-21); adds language detection and gates or flags cross-language pairs (EC-19); and attaches the provenance block.
 
 ---
+
+## Module: fusion
+
+| Field | Finding |
+|---|---|
+| File path | `fusion.py` |
+| Entry point | `run_fusion()` — no args, returns count of fused pairs. CLI at `fusion.py:111`. |
+| Language / runtime | Python 3, stdlib only (`sqlite3`, `os`, `math`; `math` is imported but never used, `fusion.py:15`). |
+| Input format | `SELECT actor_a, actor_b, link_type, evidence, confidence_score FROM relationship_links` (`fusion.py:36-39`). |
+| Output format | `INSERT OR REPLACE INTO fused_links (actor_a, actor_b, fused_confidence, contributing_link_types, signal_count, evidence_summary)` (`fusion.py:87-91`). |
+| Dependencies | stdlib only. Reads only `relationship_links`; does **not** read `infra_links` (see deviation). |
+| Current test data | ViperX↔ViperX_Reborn (wallet + stylometric = two signals), DarkFox↔DarkFox_v2 (PGP + wallet, both 'shared_identifier'). |
+| Test coverage | **None.** |
+
+### The actual algorithm, step by step
+
+1. Fetch every `relationship_links` row (`fusion.py:36-40`).
+2. Group rows by normalised pair `(min(a,b), max(a,b))` into `pair_links[pair] = [ {link_type, evidence, confidence}, ... ]` (`fusion.py:48-57`).
+3. For each pair:
+   - `confidences = [l['confidence'] for l in links]` — **all** links in the pair, not deduplicated (`fusion.py:63`).
+   - `link_types = list(dict.fromkeys(...))` — **deduplicated**, order-preserving (`fusion.py:64`).
+   - Noisy-OR (`fusion.py:66-72`):
+     ```
+     prob_not_linked = 1.0
+     for c in confidences:
+         prob_not_linked *= (1.0 - c/100.0)
+     fused_prob = 1.0 - prob_not_linked
+     fused_confidence = int(round(fused_prob * 100.0))
+     ```
+   - Cap: `if fused_confidence > 99 and max(confidences) < 100: fused_confidence = 99` (`fusion.py:74-76`).
+   - `signal_count = len(link_types)` — the **deduplicated** count (`fusion.py:79`).
+4. `INSERT OR REPLACE` one row per pair (`fusion.py:87-91`).
+
+### Is it noisy-OR? — CONFIRMED
+
+Yes. `1 - Π(1 - cᵢ)` is implemented literally at `fusion.py:66-72`, matching the module docstring (`fusion.py:5-6`).
+
+### Where do weights come from?
+
+**From the `confidence_score` already stored in `relationship_links`.** There is no weight table, no config, no per-signal weighting inside fusion. The inputs are whatever identity_graph (hardcoded 95/90) and stylometry (rescaled cosine) wrote. Fusion applies no reweighting — every input confidence enters the product with equal standing.
+
+### Category grouping (K/I/B/S)?
+
+**CONFIRMED ABSENT.** There is no category concept anywhere in `fusion.py`. Signals are grouped only by actor pair, never by evidence category. `contributing_link_types` is a flat comma-joined string of raw `link_type` values (`fusion.py:78`).
+
+### Duplicate / non-independent evidence (EC-24) — CONFIRMED BROKEN
+
+`confidences` at `fusion.py:63` uses **every** row, while `link_types` at `fusion.py:64` is deduplicated. Because identity_graph writes **both** the PGP link and the wallet link with the *same* `link_type='shared_identifier'`, a pair that shares PGP *and* wallet (e.g. DarkFox↔DarkFox_v2) produces **two** rows, both `'shared_identifier'`, with confidences `[95, 90]`. Fusion multiplies both into the noisy-OR:
+```
+1 - (1-0.95)(1-0.90) = 1 - (0.05)(0.10) = 0.995 → 99%
+```
+…yet `signal_count = 1` (link_types deduped), so the dashboard's `[BOOSTED]` indicator does *not* fire (`fusion.py:103`) even though the score *was* boosted by double-counting. **The two identifiers are not independent evidence** — they may come from the same leaked keyring / same person reusing both — but noisy-OR treats them as independent and inflates confidence accordingly. There is no independence grouping and no deduplication of correlated evidence.
+
+### Output — score, label, or both?
+
+A bare numeric `fused_confidence` (int 0–100) plus `contributing_link_types` (string), `signal_count` (int), and `evidence_summary` (concatenated evidence strings, `fusion.py:81-82`). **No tier label, no explanation text, no limitation/caveat field, no confidence interval.**
+
+### Versioning?
+
+**CONFIRMED ABSENT.** Neither the score model nor the config is versioned. `fused_links` has `created_at` (write time) only. Re-running with a changed formula silently overwrites via `INSERT OR REPLACE ... UNIQUE(actor_a, actor_b)` (`db_setup.py:89`) with no record of which formula produced a score.
+
+### EC-23 — what happens when a category has no evidence? (THE KEY QUESTION)
+
+Because there is **no category model at all**, the literal answer is: absent signals are **skipped**, not zeroed. The noisy-OR product starts at `prob_not_linked = 1.0` and only multiplies over confidences that are physically present (`fusion.py:67-69`). A signal that does not exist contributes no factor — it neither raises nor lowers the score.
+
+Two consequences at the pair level:
+- A pair with **zero** evidence never enters `pair_links` (it has no rows), so it produces **no `fused_links` row at all** — it is absent from output, not scored 0.
+- A pair with **one weak** signal (say a lone 40% semantic link) produces a `fused_links` row at 40%.
+
+So the current code *can* mechanically distinguish "unevidenced" (no row) from "weakly evidenced" (a low-score row) — but only by the *absence* of a row, which is a fragile, implicit signal with no explicit "insufficient evidence" state.
+
+### Analysis: What breaks if we keep this
+
+Grounded in `fusion.py:63-76`:
+
+1. **It cannot represent contradicting evidence.** Noisy-OR is monotonically increasing in every input — each additional signal can only push the score **up** (`fusion.py:68-69`). There is no term that can *lower* confidence. An analyst rejection (link_feedback `'rejected'`) or a negative/exculpatory signal has no path into the score. A pair with one real link and three refuted ones scores *higher* than a pair with one real link.
+
+2. **It double-counts non-independent evidence** (EC-24, above). Two facets of the same identity (`shared_identifier` PGP + wallet) both enter the product because `confidences` is not deduplicated by independence (`fusion.py:63`). Noisy-OR's independence assumption is violated, so the 99% is not a calibrated probability — it is an artefact of counting one identity twice.
+
+3. **Unevidenced vs weakly-evidenced is distinguishable only by row absence.** There is no explicit floor or "insufficient evidence" tier. Downstream consumers must treat "no fused row" as "not attributed"; the dashboard happens to do this, but nothing enforces it. A single 40% semantic-similarity link — the weakest, most over-labelled signal in the system — surfaces as a positive 40% attribution with no caveat.
+
+4. **The 99% cap is cosmetic** (`fusion.py:74-76`). With hardcoded 95/90 inputs, any two shared-identifier facets already saturate to 99. The cap hides saturation rather than calibrating it, so the top of the scale is uninformative — many genuinely different evidence strengths all read "99%".
+
+5. **No categories means correlated signals are never collapsed.** A proper fusion needs to combine *within* a category (take the strongest, or model correlation) and apply noisy-OR *across* independent categories (K/I/B/S). The current flat product does neither.
+
+### Security concerns
+
+- Score inflation from double-counted identifiers presents unreliable 99% attributions to analysts (`fusion.py:63`).
+- Monotonic model cannot down-weight analyst-rejected links, so the feedback loop (dashboard) can never lower a fused score (`fusion.py:66-72`).
+
+### Data-provenance gaps
+
+- `evidence_summary` is a flattened string, not structured provenance; it inherits the missing capture/source/hash from the upstream links (`fusion.py:81-82`).
+- No score-model version stored, so a fused score is not reproducible (`fusion.py:87-91`).
+
+### Adapter required
+
+A fusion redesign (not a thin adapter) that: classifies each evidence unit into a category (K/I/B/S) via the enum in `docs/indicator-types.md`; combines within-category with independence-aware logic (dedupe correlated identifiers, EC-24); applies noisy-OR across categories; supports a signed/negative or veto term so contradicting evidence and analyst rejections can lower the score; emits an explicit "insufficient evidence" state (EC-23) rather than relying on row absence; and stamps a `score_model_version`.
+
+---
