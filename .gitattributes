@@ -1,0 +1,11 @@
+# GitHub Linguist Language Detection Configuration
+# Prevents large HTML test fixtures, mock marketplace templates, and static sites
+# from skewing repository language statistics away from Python.
+
+*.html linguist-detectable=false
+fixtures/** linguist-detectable=false
+fixtures/** linguist-documentation
+marketplace/templates/** linguist-detectable=false
+nginx-clearnet/site/** linguist-detectable=false
+nginx-hidden/site/** linguist-detectable=false
+docs/** linguist-documentation
