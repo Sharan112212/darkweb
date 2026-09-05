@@ -1,0 +1,19 @@
+{
+  "description": "True negative pair: Distinct authors with contrasting writing styles (formal/academic vs colloquial/slang)",
+  "actor_a": "author_gamma",
+  "actor_b": "author_delta",
+  "posts_a": [
+    "The empirical evaluation of cryptographic protocols necessitates rigorous formal verification methodology. Consequently, one must examine all boundary conditions systematically. Furthermore, statistical analysis of key distribution properties demonstrates substantial entropy improvements under the proposed framework. In addition, performance overhead remains minimal.",
+    "Furthermore, the implementation of deterministic finite automata in network protocol analysis yields deterministic guarantees regarding state transitions. Therefore, edge cases must be handled with utmost mathematical precision. We observe that latency metrics remain bounded across all operational environments under sustained throughput conditions.",
+    "In accordance with established theoretical standards, the reduction of computational complexity remains a primary objective. Specifically, asymptotic bounds on algorithm performance dictate the scalability of the infrastructure. Consequently, optimization efforts must focus upon core data structures and memory layout optimizations.",
+    "The architectural design exhibits structural modularity, thereby facilitating independent auditability of individual components. Moreover, formal proofs of correctness have been established for the primary authentication module. Thus, system integrity is mathematically guaranteed across all execution paths.",
+    "To summarize our preliminary findings, the empirical data strongly supports the primary hypothesis. Subsequent iterations of the protocol will incorporate continuous monitoring mechanisms. Therefore, further experimental validation will be conducted in controlled laboratory environments under diverse workload scenarios."
+  ],
+  "posts_b": [
+    "yo fam check this out! quick drop today, fresh stuff ready to go right now! hit me up on DM if u need custom orders. always shipping fast, 100% legit no cap! we got the best quality in town bro, dont buy from fake vendors who scam u out of ur hard earned money. trust me u will come back for more every single time you order from us!",
+    "sup guys!! new batch just dropped, quality checked twice bro!! super clean and fast delivery as always! dont miss out on this deal, prices won't stay this low forever! hit the inbox right now before stock runs out completely! we ship everywhere worldwide with full stealth packaging guaranteed and zero hassle at all!",
+    "hey everyone... another update here. stock is low so hurry up! DM me for bulk discounts. stay safe out there n keep grindin! remember we offer fast refunds if anything goes wrong with tracking, but our delivery rate is basically 100% anyway so zero worries fam! we got your back all day every day for sure!",
+    "yo yo yo! thanks for all the awesome reviews lately! super hyped to keep serving you all. fast responses on chat today, hit me up anytime! if u need help setting up pgp or paying with crypto just ask, I am online all day long to help out any new buyers who want top tier products right now!",
+    "huge restock coming tomorrow fam!! get your orders ready now. fast shipping guaranteed, best quality on the market period! don't wait until the last minute because items sell out super fast every single week. hit me up on session or wickr or DM right here right now for instant confirmation and fast service!"
+  ]
+}

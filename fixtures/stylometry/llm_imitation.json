@@ -1,0 +1,19 @@
+{
+  "description": "LLM imitation fixture: Synthetic text mimicking style; must be capped and labeled as supporting evidence only",
+  "actor_a": "real_author",
+  "actor_b": "llm_bot_imitator",
+  "posts_a": [
+    "Hello everyone. I am releasing a new software tool for system monitoring. It features automated logging, clean configurations, and lightweight overhead. However, you should always test your builds before deploying. Make sure that you review all settings in advance. Furthermore, it is very important to verify file hashes prior to execution.",
+    "Regarding the update released yesterday: we fixed several edge cases in the network handler. In addition, we optimized memory allocation to ensure smooth operation under heavy loads. If you encounter any bugs, please submit a detailed report. Remember that bug reports must include system logs and environment parameters.",
+    "Today I want to discuss best practices for encrypted backups. First, always use strong key derivation functions. Second, store your keys in isolated memory spaces. Third, automate the verification of backup integrity on a regular schedule. Furthermore, never share your primary credentials across multiple systems.",
+    "Many users have asked about multi-threading support in our latest release. We have implemented a lock-free queue that handles concurrent tasks efficiently. However, thread safety requires careful management of shared state. Make sure that all worker threads handle exceptions gracefully to prevent crashes.",
+    "This final post summarizes our roadmap for the upcoming quarter. We plan to integrate hardware security module support and improve API performance. In addition, we will conduct an independent security audit of the core codebase. Thank you for your continued feedback and support throughout this process."
+  ],
+  "posts_b": [
+    "Hello everyone. As an AI model trained to imitate writing styles, I present a synthetic post on system monitoring. It features automated logging, clean configurations, and lightweight overhead. However, you should always test your builds before deploying. Make sure that you review all settings in advance. Furthermore, it is very important to verify file hashes prior to execution.",
+    "Regarding the synthetic update released yesterday: we fixed several edge cases in the prompt handler. In addition, we optimized token allocation to ensure smooth operation under heavy loads. If you encounter any bugs, please submit a detailed report. Remember that bug reports must include system logs and environment parameters.",
+    "Today I want to discuss synthetic best practices for encrypted backups. First, always use strong key derivation functions. Second, store your keys in isolated memory spaces. Third, automate the verification of backup integrity on a regular schedule. Furthermore, never share your primary credentials across multiple systems.",
+    "Many users have asked about synthetic multi-threading support in our latest release. We have implemented a lock-free queue that handles concurrent tasks efficiently. However, thread safety requires careful management of shared state. Make sure that all worker threads handle exceptions gracefully to prevent crashes.",
+    "This final synthetic post summarizes our roadmap for the upcoming quarter. We plan to integrate hardware security module support and improve API performance. In addition, we will conduct an independent security audit of the core codebase. Thank you for your continued feedback and support throughout this process."
+  ]
+}

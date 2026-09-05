@@ -2,7 +2,11 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.audit_middleware import AuditMiddleware
-from api.routes import auth_router, captures_router, evidence_router, links_router, health_router, graph_router
+from api.routes import (
+    auth_router, captures_router, evidence_router, links_router, health_router,
+    graph_router, timeline_router, search_router, entities_router, actors_router,
+    audit_router, admin_router, cases_router, exports_router
+)
 
 def create_app(db_path: Optional[str] = None) -> FastAPI:
     """FastAPI application factory."""
@@ -35,6 +39,14 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     app.include_router(evidence_router, prefix=api_v1_prefix)
     app.include_router(links_router, prefix=api_v1_prefix)
     app.include_router(graph_router, prefix=api_v1_prefix)
+    app.include_router(timeline_router, prefix=api_v1_prefix)
+    app.include_router(search_router, prefix=api_v1_prefix)
+    app.include_router(entities_router, prefix=api_v1_prefix)
+    app.include_router(actors_router, prefix=api_v1_prefix)
+    app.include_router(audit_router, prefix=api_v1_prefix)
+    app.include_router(admin_router, prefix=api_v1_prefix)
+    app.include_router(cases_router, prefix=api_v1_prefix)
+    app.include_router(exports_router, prefix=api_v1_prefix)
     app.include_router(health_router, prefix=api_v1_prefix)
 
     return app

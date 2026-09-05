@@ -74,15 +74,140 @@ def get_link_count(handle):
     return rows[0]["cnt"] if rows else 0
 
 
-def record_feedback(link_id, link_source, feedback_val):
-    """Record analyst feedback (confirmed/rejected) in link_feedback table."""
+def record_feedback(link_id, link_source, feedback_val, analyst_note=None):
+    """Record analyst feedback (confirmed/rejected) with a mandatory note (EC-26)."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO link_feedback (link_id, link_source, feedback)
-        VALUES (?, ?, ?)
-    """, (link_id, link_source, feedback_val))
+        INSERT INTO link_feedback (link_id, link_source, feedback, analyst_note)
+        VALUES (?, ?, ?, ?)
+    """, (link_id, link_source, feedback_val, analyst_note))
     conn.commit()
+
+
+# ============================================================
+# Branch 5 — RBAC + disclosure + evidence drawer helpers
+# ============================================================
+
+DISCLOSURE_TEXT = (
+    "This system provides confidence-scored technical associations for authorized "
+    "analyst review. It does not defeat Tor, establish a person's real-world identity, "
+    "or replace legal/forensic investigation."
+)
+
+# Role hierarchy mirrors api/rbac.py
+ROLE_LEVEL = {"viewer": 1, "analyst": 2, "reviewer": 3, "admin": 4}
+
+
+def current_role():
+    return st.session_state.get("role", "analyst")
+
+
+def can_decide():
+    """Only analyst and above may accept/reject links (EC-26)."""
+    return ROLE_LEVEL.get(current_role(), 1) >= ROLE_LEVEL["analyst"]
+
+
+def render_decision_ui(link_id, other, key_prefix):
+    """Mandatory-note decision UI, gated by role. Returns nothing; writes on submit."""
+    if not can_decide():
+        st.caption("🔒 Viewer role — decisions require Analyst permission or higher.")
+        return
+    note = st.text_input("Analyst note (required to record a decision)",
+                         key=f"note_{key_prefix}_{link_id}",
+                         placeholder="Why is this link confirmed or a false positive?")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("👍 Confirm", key=f"conf_{key_prefix}_{link_id}"):
+            if not note.strip():
+                st.warning("A note is required before recording a decision.")
+            else:
+                record_feedback(link_id, "relationship_links", "confirmed", note.strip())
+                st.toast(f"Confirmed link with {other}.")
+                st.rerun()
+    with c2:
+        if st.button("👎 False Positive", key=f"rej_{key_prefix}_{link_id}"):
+            if not note.strip():
+                st.warning("A note is required before recording a decision.")
+            else:
+                record_feedback(link_id, "relationship_links", "rejected", note.strip())
+                st.toast(f"Flagged false positive for {other}.")
+                st.rerun()
+
+
+def render_evidence_drawer(link, other, key_prefix):
+    """Evidence chain drawer: source -> indicator -> entities -> confidence -> caveat."""
+    with st.expander(f"🔍 Evidence chain for link with {other}"):
+        st.markdown(f"- **Link type / source:** `{link['link_type']}`")
+        st.markdown(f"- **Linked entities:** `{link['actor_a']}` ↔ `{link['actor_b']}`")
+        st.markdown(f"- **Confidence contribution:** `{link['confidence_score']}%`")
+        if current_role() == "viewer":
+            st.markdown("- **Observed indicator:** `[REDACTED — VIEW ONLY PERMISSION]`")
+        else:
+            st.markdown(f"- **Observed indicator / evidence:** {link['evidence']}")
+        st.markdown(f"- **Link ID:** `{link['id']}`")
+        if link['link_type'] == 'stylometric':
+            st.caption("⚠️ Caveat: semantic similarity is supporting evidence only, not authorship proof.")
+
+
+def render_timeline(handle):
+    """
+    Branch 6 timeline tab: chronological events for an actor built from the demo
+    data (posts + relationship links). Uncertain times are visibly marked, and a
+    date range filter is shared with the rest of the profile view.
+    """
+    events = []
+
+    # post_observed events (observation time from the post)
+    posts = query_rows("SELECT timestamp, text FROM posts WHERE handle = ?", (handle,))
+    for p in posts:
+        ts = (p["timestamp"] or "").strip()
+        events.append({
+            "type": "post_observed",
+            "time": ts,
+            "approximate": ts == "",
+            "desc": (p["text"][:90] + "…") if p["text"] and len(p["text"]) > 90 else (p["text"] or ""),
+        })
+
+    # candidate_link_created events (from relationship links involving this actor)
+    if table_exists("relationship_links"):
+        links = query_rows(
+            "SELECT created_at, link_type, actor_a, actor_b FROM relationship_links WHERE actor_a = ? OR actor_b = ?",
+            (handle, handle),
+        )
+        for l in links:
+            other = l["actor_b"] if l["actor_a"] == handle else l["actor_a"]
+            events.append({
+                "type": "candidate_link_created",
+                "time": (l["created_at"] or "").strip(),
+                "approximate": False,
+                "desc": f"Link ({l['link_type']}) with {other}",
+            })
+
+    if not events:
+        st.info("No timeline events available for this actor.")  # explicit absence (EC-39)
+        return
+
+    # Date range filter (shared bound the graph/search views also use)
+    dated = [e for e in events if e["time"]]
+    if dated:
+        times = sorted(e["time"][:10] for e in dated)
+        try:
+            dmin = datetime.strptime(times[0], "%Y-%m-%d").date()
+            dmax = datetime.strptime(times[-1], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            dmin, dmax = date(2026, 1, 1), date(2026, 12, 31)
+        rng = st.date_input("📅 Timeline range", value=(dmin, dmax),
+                            min_value=dmin, max_value=dmax, key=f"tl_range_{handle}")
+        if isinstance(rng, tuple) and len(rng) == 2:
+            lo, hi = rng[0].isoformat(), rng[1].isoformat()
+            events = [e for e in events if (not e["time"]) or (lo <= e["time"][:10] <= hi)]
+
+    icon = {"post_observed": "💬", "candidate_link_created": "🔗"}
+    for e in sorted(events, key=lambda x: (x["time"] or "9999")):
+        when = e["time"] if e["time"] else "unknown time"
+        mark = " ⚠️ *approximate*" if e["approximate"] else ""
+        st.markdown(f"- {icon.get(e['type'], '•')} **{when}**{mark} — _{e['type']}_: {e['desc']}")
 
 
 # ============================================================
@@ -192,6 +317,16 @@ with st.sidebar:
     st.markdown("**PS 26151 Prototype**")
     st.markdown("---")
 
+    # Branch 5 — role selection drives RBAC gating + redaction
+    st.markdown("### Analyst Role")
+    st.session_state.role = st.selectbox(
+        "Acting role",
+        ["viewer", "analyst", "reviewer", "admin"],
+        index=["viewer", "analyst", "reviewer", "admin"].index(st.session_state.get("role", "analyst")),
+        help="Viewer can browse but not decide; Analyst+ can record decisions.",
+    )
+    st.markdown("---")
+
     # Quick stats
     if os.path.exists(DB_PATH):
         actors_count = query_rows("SELECT COUNT(*) as cnt FROM actors")[0]["cnt"]
@@ -237,6 +372,13 @@ if not os.path.exists(DB_PATH):
     st.error(f"❌ Database not found at `{DB_PATH}`")
     st.info("Run the scraper first to create the database, then run `run_pipeline.py`.")
     st.stop()
+
+
+# ============================================================
+# Mandatory disclosure banner (Branch 5) — shown on every screen
+# ============================================================
+
+st.warning(f"**Disclosure:** {DISCLOSURE_TEXT}")
 
 
 # ============================================================
@@ -346,51 +488,31 @@ if st.session_state.selected_actor is not None:
                     emoji = confidence_emoji(link['confidence_score'])
                     link_id = link['id']
 
-                    card_col, btn_col1, btn_col2 = st.columns([5, 1, 1])
-                    with card_col:
-                        st.markdown(f"""
+                    st.markdown(f"""
 <div class="link-card link-shared">
     <strong>{other}</strong> &nbsp; {emoji} <span class="{confidence_class(link['confidence_score'])}">Confidence: {link['confidence_score']}%</span><br>
     <span class="evidence-text">📋 {link['evidence']}</span>
 </div>
-                        """, unsafe_allow_html=True)
-                    with btn_col1:
-                        if st.button("👍 Confirm", key=f"conf_shared_{link_id}"):
-                            record_feedback(link_id, "relationship_links", "confirmed")
-                            st.toast(f"Feedback recorded: Confirmed link with {other}!")
-                            st.rerun()
-                    with btn_col2:
-                        if st.button("👎 False Positive", key=f"rej_shared_{link_id}"):
-                            record_feedback(link_id, "relationship_links", "rejected")
-                            st.toast(f"Feedback recorded: Flagged false positive for {other}!")
-                            st.rerun()
+                    """, unsafe_allow_html=True)
+                    render_evidence_drawer(link, other, "shared")
+                    render_decision_ui(link_id, other, "shared")
 
             if not style_links.empty:
-                st.markdown("#### 🧠 Linked via Writing Style (AI Stylometry)")
+                st.markdown("#### 🧠 Linked via Writing Style (Semantic Similarity)")
                 for _, link in style_links.iterrows():
                     other = link['actor_b'] if link['actor_a'] == handle else link['actor_a']
                     emoji = confidence_emoji(link['confidence_score'])
                     link_id = link['id']
 
-                    card_col, btn_col1, btn_col2 = st.columns([5, 1, 1])
-                    with card_col:
-                        st.markdown(f"""
+                    st.markdown(f"""
 <div class="link-card link-stylometric">
     <strong>{other}</strong> &nbsp; {emoji} <span class="{confidence_class(link['confidence_score'])}">Confidence: {link['confidence_score']}%</span><br>
     <span class="evidence-text">🧠 {link['evidence']}</span><br>
-    <span class="evidence-text">⚠️ This pair shares NO PGP key or wallet — this link was found through AI stylometric analysis only.</span>
+    <span class="evidence-text">⚠️ This pair shares NO PGP key or wallet — semantic similarity only, not authorship proof.</span>
 </div>
-                        """, unsafe_allow_html=True)
-                    with btn_col1:
-                        if st.button("👍 Confirm", key=f"conf_style_{link_id}"):
-                            record_feedback(link_id, "relationship_links", "confirmed")
-                            st.toast(f"Feedback recorded: Confirmed link with {other}!")
-                            st.rerun()
-                    with btn_col2:
-                        if st.button("👎 False Positive", key=f"rej_style_{link_id}"):
-                            record_feedback(link_id, "relationship_links", "rejected")
-                            st.toast(f"Feedback recorded: Flagged false positive for {other}!")
-                            st.rerun()
+                    """, unsafe_allow_html=True)
+                    render_evidence_drawer(link, other, "style")
+                    render_decision_ui(link_id, other, "style")
 
             if shared_links.empty and style_links.empty:
                 st.info("No linked personas found for this actor.")
@@ -430,6 +552,12 @@ if st.session_state.selected_actor is not None:
             st.info("No infrastructure correlation matches found for this specific actor.")
     else:
         st.info("Infrastructure links table not found. Run `db_setup.py` first.")
+
+    st.markdown("---")
+
+    # --- Timeline (Branch 6) ---
+    st.markdown("### 🕒 Timeline")
+    render_timeline(handle)
 
     st.markdown("---")
 

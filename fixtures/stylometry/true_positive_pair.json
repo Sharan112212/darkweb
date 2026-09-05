@@ -1,0 +1,19 @@
+{
+  "description": "True positive pair: Same author writing on distinct topics (software tools vs hardware opsec)",
+  "actor_a": "author_alpha",
+  "actor_b": "author_beta",
+  "posts_a": [
+    "Hello everyone. I am releasing a new software tool for system monitoring. It features automated logging, clean configurations, and lightweight overhead. However, you should always test your builds before deploying. Make sure that you review all settings in advance. Furthermore, it is very important to verify file hashes prior to execution.",
+    "Regarding the update released yesterday: we fixed several edge cases in the network handler. In addition, we optimized memory allocation to ensure smooth operation under heavy loads. If you encounter any bugs, please submit a detailed report. Remember that bug reports must include system logs and environment parameters.",
+    "Today I want to discuss best practices for encrypted backups. First, always use strong key derivation functions. Second, store your keys in isolated memory spaces. Third, automate the verification of backup integrity on a regular schedule. Furthermore, never share your primary credentials across multiple systems.",
+    "Many users have asked about multi-threading support in our latest release. We have implemented a lock-free queue that handles concurrent tasks efficiently. However, thread safety requires careful management of shared state. Make sure that all worker threads handle exceptions gracefully to prevent crashes.",
+    "This final post summarizes our roadmap for the upcoming quarter. We plan to integrate hardware security module support and improve API performance. In addition, we will conduct an independent security audit of the core codebase. Thank you for your continued feedback and support throughout this process."
+  ],
+  "posts_b": [
+    "Welcome to my guide on hardware operational security. When configuring physical devices, one must always prioritize physical access controls. However, software isolation is equally critical when managing sensitive operations. Make sure that you disable all unused hardware interfaces before deployment. Furthermore, verify device firmware integrity regularly.",
+    "In this section, we analyze power analysis attacks against embedded microcontrollers. Shielding and decoupling capacitors can mitigate side-channel leakage. In addition, constant-time algorithms are necessary to prevent timing attacks. If you build custom hardware, test for electromagnetic emissions carefully. Remember that physical security cannot be ignored.",
+    "Today we examine secure storage solutions for offline hardware tokens. First, choose tamper-resistant enclosures for critical components. Second, implement zeroization mechanisms that wipe memory upon physical intrusion. Third, maintain strict supply chain controls for all acquired components. Furthermore, audit hardware suppliers periodically.",
+    "Several colleagues inquired about optical side-channel analysis in isolated environments. LED status indicators can inadvertently leak key material during cryptographic operations. However, masking the indicators with opaque covers eliminates this vulnerability. Make sure that all optical emitters are disabled or covered.",
+    "To conclude this series: hardware security requires a holistic defense-in-depth strategy. Combine physical shielding, secure boot routines, and rigorous key management. In addition, perform regular security reviews of your physical infrastructure. Thank you for reading and stay safe out there."
+  ]
+}
