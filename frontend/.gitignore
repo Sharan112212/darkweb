@@ -3,3 +3,8 @@ dist/
 dist-ssr/
 *.local
 .vite/
+
+# tsc -b build artifacts (emitted next to sources)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
