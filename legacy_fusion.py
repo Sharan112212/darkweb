@@ -1,5 +1,10 @@
 """
-Multi-Signal Fusion Module for the PS 26151 prototype.
+Legacy Multi-Signal Fusion Module for the PS 26151 prototype.
+
+NOTE: renamed from ``fusion.py`` so it no longer collides with the Branch 3
+``fusion/`` package (the explainable K/I/B/S engine). This standalone module
+remains the simple Noisy-OR runner used by ``run_pipeline.py`` for the offline
+demo; the ``fusion/`` package supersedes it for the full pipeline.
 
 Fuses independent attribution signals (shared identifiers, AI stylometry)
 for actor pairs into a single, unified confidence score using Noisy-OR combination:
