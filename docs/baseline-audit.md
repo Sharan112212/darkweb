@@ -289,3 +289,117 @@ Grounded in `fusion.py:63-76`:
 A fusion redesign (not a thin adapter) that: classifies each evidence unit into a category (K/I/B/S) via the enum in `docs/indicator-types.md`; combines within-category with independence-aware logic (dedupe correlated identifiers, EC-24); applies noisy-OR across categories; supports a signed/negative or veto term so contradicting evidence and analyst rejections can lower the score; emits an explicit "insufficient evidence" state (EC-23) rather than relying on row absence; and stamps a `score_model_version`.
 
 ---
+
+## Module: dashboard
+
+| Field | Finding |
+|---|---|
+| File path | `dashboard.py` |
+| Entry point | Top-level Streamlit script (`streamlit run dashboard.py`). No `main()`; executes top to bottom. |
+| Language / runtime | Python 3 + Streamlit, pandas, sqlite3. |
+| Input format | Direct SQL against `scraper/darkweb_intel.db` via `query_df` / `query_rows` helpers (`dashboard.py:43-54`). |
+| Output format | Rendered HTML/Streamlit UI; CSV & JSON download buttons. |
+| Dependencies | `streamlit`, `sqlite3`, `pandas`, `os`, `json`, `datetime`; imports `feedback_stats.get_feedback_stats` lazily (`dashboard.py:217`). |
+| Current test data | Reads live DB. |
+| Test coverage | **None.** |
+
+### Views that exist
+
+Only **two screens**, switched by `st.session_state.selected_actor` (`dashboard.py:246-256`) — not Streamlit multipage:
+
+- **Sidebar** (`dashboard.py:190-229`): quick-stat metrics (actors, posts, relationship links, infra matches) and a "Signal Reliability" block driven by `feedback_stats` (`dashboard.py:213-224`).
+- **Screen 1 — Search / Home** (`dashboard.py:516-639`): text search across handle/category/pgp/wallet/source (`dashboard.py:554-558`), category selectbox, last-seen date range; results list with per-actor buttons; bulk CSV/JSON export.
+- **Screen 2 — Actor Profile** (`dashboard.py:262-509`): header, identifiers, **Linked Personas** (fusion display + shared-identifier links + stylometric links with confirm/reject buttons), **Infrastructure Correlation**, **Posts/Activity**, per-actor CSV/JSON export.
+
+### Authentication / roles
+
+**CONFIRMED ABSENT.** No login, no session auth, no role check anywhere. `st.set_page_config` and page logic run for anyone who can reach the Streamlit port. Any viewer can submit analyst feedback.
+
+### What is shown when a link is displayed
+
+More than a bare score:
+- Shared-identifier card: other actor, confidence emoji + `Confidence: N%`, and the `evidence` text (`dashboard.py:351-356`).
+- Stylometric card: same, **plus** an explicit caveat line: *"⚠️ This pair shares NO PGP key or wallet — this link was found through AI stylometric analysis only."* (`dashboard.py:381`).
+- Fusion display: `Multi-Signal Fused Score: N%` with signal count and contributing types (`dashboard.py:324-327`).
+
+### Graph view / timeline / export
+
+- **Graph view: NONE.** `networkx`/`pyvis` are in `requirements.txt` but `dashboard.py` imports neither and renders no graph. (The pyvis graph is a *planned* P1 item — `docs/Implementation_Plan.md:96`.)
+- **Timeline: NONE.** Posts are listed by timestamp DESC (`dashboard.py:438-441`) but there is no timeline visualisation.
+- **Export: YES.** Per-actor CSV (`dashboard.py:494-499`) and JSON (`dashboard.py:503-509`); bulk filtered CSV/JSON (`dashboard.py:621-639`).
+
+### Disclosure / limitation text
+
+The **only** limitation text shown anywhere is the per-stylometric-card caveat at `dashboard.py:381`. There is **no global disclaimer**, no statement that scores are prototype/uncalibrated, no note that shared identifiers may be non-independent, and no caveat on the fusion score. The `'stylometric'` links are still headed "AI Stylometry" (`dashboard.py:369`), overstating the semantic-similarity measurement (see stylometry finding).
+
+### How it queries the DB
+
+**Direct SQL inline in the UI layer.** `query_df` and `query_rows` are thin `pandas.read_sql_query` / cursor wrappers (`dashboard.py:43-54`); SQL strings are written inline throughout the render code (e.g. `dashboard.py:310-315`, `330-335`, `465-468`). No repository/DAO abstraction, no ORM. The connection is cached with `check_same_thread=False` (`dashboard.py:38`).
+
+### Security concerns
+
+- No authentication or role gating — anyone reaching the app can view all intelligence and write feedback (`dashboard.py:190+`, `record_feedback`).
+- `unsafe_allow_html=True` is used to inject actor-derived strings (handles, evidence, **post text**) into HTML without escaping (`dashboard.py:446-451` renders `post['text']` raw) — a stored-XSS vector if any post/handle contains markup. Data is synthetic today, but the scraper feeds this table.
+- Search uses parameterised `LIKE` (`dashboard.py:559-560`) — no SQL injection there; the risk is the raw-HTML rendering, not the queries.
+
+### Data-provenance gaps
+
+- The UI can only show what the tables hold; with no provenance columns upstream, an analyst cannot click through to a source capture or verify an evidence claim.
+
+### Adapter required
+
+A presentation adapter/refactor that: adds a global limitation/disclaimer banner and a per-score caveat sourced from the fusion `limitation` field; escapes all actor-derived text before HTML injection; and (Phase-later) adds the graph view and provenance drill-down once evidence carries capture IDs.
+
+---
+
+## Module: feedback (feedback_stats.py + dashboard write path)
+
+| Field | Finding |
+|---|---|
+| File path | `feedback_stats.py` (read/aggregate); write path is `dashboard.record_feedback` (`dashboard.py:77-85`). |
+| Entry point | `get_feedback_stats()` and `print_feedback_summary()` (`feedback_stats.py:16`, `:65`); CLI at `:86`. |
+| Language / runtime | Python 3, stdlib `sqlite3`, `os`. |
+| Input format | `link_feedback` JOIN `relationship_links` on `link_id`, filtered `link_source='relationship_links'` (`feedback_stats.py:32-42`). |
+| Output format | Dict per `link_type`: `total`, `confirmed`, `rejected`, `reliability_pct` (`feedback_stats.py:54-59`). |
+| Dependencies | stdlib only. |
+| Current test data | Empty until an analyst clicks a button. |
+| Test coverage | **None.** |
+
+### What a confirm/reject writes, and where
+
+`record_feedback` runs `INSERT INTO link_feedback (link_id, link_source, feedback) VALUES (?, ?, ?)` (`dashboard.py:81-84`). `feedback` is the literal `'confirmed'` or `'rejected'` (`dashboard.py:359`, `:365`, `:387`, `:391`); `link_source` is always `'relationship_links'`.
+
+### Is a reason/note required? (EC-26)
+
+**No.** The `link_feedback` table *has* an `analyst_note` column (`db_setup.py:98`), but `record_feedback` **never writes it** (`dashboard.py:81-84`) — the column is always NULL. No reason is captured or required. EC-26 confirmed absent despite the column existing.
+
+### Append-only or in-place?
+
+**Append-only.** Every click is a new `INSERT` (`dashboard.py:82`); there is no `UPDATE`/`DELETE` of feedback rows anywhere. Clicking Confirm then False-Positive on the same link writes **two** rows, both retained.
+
+### Is the acting user recorded?
+
+**No.** `link_feedback` has no analyst/user identity column (`db_setup.py:93-100`) and `record_feedback` records none. Combined with the missing dashboard auth, feedback is fully anonymous.
+
+### Is a timestamp recorded?
+
+**Yes.** `submitted_at TEXT DEFAULT CURRENT_TIMESTAMP` (`db_setup.py:99`). SQLite `CURRENT_TIMESTAMP` is **UTC** in `YYYY-MM-DD HH:MM:SS` form (EC-17). Note the same UTC default is used on every table's `created_at`/`matched_at`.
+
+### Can a decision be reverted, and is history preserved? (EC-14)
+
+History **is** preserved (append-only), but there is **no revert semantics**. There is no way to mark a prior decision superseded, and no "current state" resolution: `get_feedback_stats` counts *all* rows (`feedback_stats.py:34-42`), so a Confirm followed by a Reject counts as one confirmed **and** one rejected, distorting `reliability_pct = confirmed/total` (`feedback_stats.py:52`). A user cannot correct a mis-click except by adding an opposing row, which pollutes the reliability metric rather than replacing the earlier vote.
+
+### Security concerns
+
+- Anonymous, unauthenticated, unlimited feedback writes (no user, no rate limit) let anyone skew `reliability_pct` (`dashboard.py:77-85`).
+- Fused links have **no feedback path** — `record_feedback` only ever tags `link_source='relationship_links'`, so the fusion score can never receive or reflect analyst judgement.
+
+### Data-provenance gaps
+
+- No actor/analyst identity and no note means a confirmed link cannot be attributed to a reviewer or justified — the audit trail records *that* someone voted, never *who* or *why*.
+
+### Adapter required
+
+A feedback adapter that: makes writes carry `analyst_id` and an optional-but-recommended `analyst_note` (EC-26); models revert as a new append that supersedes prior votes with an explicit "current decision" resolution (EC-14) so `reliability_pct` counts one vote per link per analyst; and extends the feedback path to fused links so analyst judgement can feed back into scoring.
+
+---
