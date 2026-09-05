@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.audit_middleware import AuditMiddleware
-from api.routes import auth_router, captures_router, evidence_router, links_router, health_router, graph_router
+from api.routes import auth_router, captures_router, evidence_router, links_router, health_router, graph_router, timeline_router
 
 def create_app(db_path: Optional[str] = None) -> FastAPI:
     """FastAPI application factory."""
@@ -35,6 +35,7 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     app.include_router(evidence_router, prefix=api_v1_prefix)
     app.include_router(links_router, prefix=api_v1_prefix)
     app.include_router(graph_router, prefix=api_v1_prefix)
+    app.include_router(timeline_router, prefix=api_v1_prefix)
     app.include_router(health_router, prefix=api_v1_prefix)
 
     return app
