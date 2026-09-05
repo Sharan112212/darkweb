@@ -18,9 +18,10 @@ PyYAML>=6.0
 streamlit>=1.30.0
 pandas>=2.0.0
 
-# --- Graph visualization (P1) ---
+# --- Graph visualization & Neo4j projection (Branch 6) ---
 networkx>=3.0
 pyvis>=0.3.0
+neo4j>=5.0.0
 
 # --- Export ---
 reportlab>=4.0.0
