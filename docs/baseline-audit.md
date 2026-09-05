@@ -44,7 +44,7 @@ Notable findings from orientation:
 - **No `tests/` directory exists anywhere in the repo.** Test coverage for every module below is therefore **zero**. This is stated once here and referenced per module rather than repeated.
 - The database file is `scraper/darkweb_intel.db` — every Dev B module hardcodes `DB_PATH = os.path.join(os.path.dirname(__file__), "scraper", "darkweb_intel.db")`. The DB lives *inside* the scraper directory, not at root.
 - The SBERT model is pre-cached under `models/all-MiniLM-L6-v2/` by `download_model.py`.
-- `db_setup.py` creates **8 tables** (see B0.5), not the 7 the plan assumes.
+- `db_setup.py` creates **7 user tables** (see B0.5) — the plan's count of 7 is correct. (SQLite additionally auto-creates `sqlite_sequence` for the `AUTOINCREMENT` tables, so `sqlite_master` reports 8 rows.) The stale doc is `docs/Backend_Schema.md`, which documents only 5 tables — it omits `fused_links` and `link_feedback` entirely.
 
 ---
 
@@ -401,5 +401,83 @@ History **is** preserved (append-only), but there is **no revert semantics**. Th
 ### Adapter required
 
 A feedback adapter that: makes writes carry `analyst_id` and an optional-but-recommended `analyst_note` (EC-26); models revert as a new append that supersedes prior votes with an explicit "current decision" resolution (EC-14) so `reliability_pct` counts one vote per link per analyst; and extends the feedback path to fused links so analyst judgement can feed back into scoring.
+
+---
+
+## Module: database (db_setup.py)
+
+**Source:** `db_setup.py:25-107` — a single `executescript`. No migration framework, no ALTER paths; schema is idempotent via `CREATE TABLE IF NOT EXISTS`.
+
+### Table-by-table inventory
+
+| Table | Columns (name : type) | Keys / constraints | Indexes | Written by | Read by |
+|---|---|---|---|---|---|
+| `actors` | handle:TEXT, category:TEXT, source:TEXT, status:TEXT, last_seen:TEXT, pgp_fingerprint:TEXT, wallet_address:TEXT | PK(handle); no FK | — | scraper (Dev A) | identity_graph, dashboard |
+| `posts` | id:INTEGER, handle:TEXT, timestamp:TEXT, text:TEXT | PK(id) AUTOINCREMENT; FK(handle→actors) | idx_posts_handle | scraper (Dev A) | stylometry, dashboard |
+| `relationship_links` | id:INTEGER, actor_a:TEXT, actor_b:TEXT, link_type:TEXT, evidence:TEXT, confidence_score:INTEGER, created_at:TEXT | PK(id); NOT NULL a/b/type/evidence/conf; CHECK link_type IN ('shared_identifier','stylometric'); CHECK conf 0–100; FK a,b→actors; **UNIQUE(actor_a,actor_b,link_type)** | idx_links_actor_a, idx_links_actor_b | identity_graph, stylometry | fusion, dashboard, feedback_stats |
+| `infra_links` | id:INTEGER, onion_address:TEXT, clearnet_host:TEXT, evidence:TEXT, confidence_score:INTEGER, matched_at:TEXT | PK(id); NOT NULL onion/clearnet/evidence/conf; CHECK conf 0–100; **no FK, no UNIQUE** | — | match_infra (Dev A) | dashboard |
+| `actor_infra_map` | handle:TEXT, onion_address:TEXT | **no PK**; FK(handle→actors), FK(onion_address→infra_links.onion_address) | — | match_infra (Dev A), scraper | dashboard |
+| `fused_links` | id:INTEGER, actor_a:TEXT, actor_b:TEXT, fused_confidence:INTEGER, contributing_link_types:TEXT, signal_count:INTEGER, evidence_summary:TEXT, created_at:TEXT | PK(id); NOT NULL a/b/conf/types/count/summary; CHECK conf 0–100; FK a,b→actors; **UNIQUE(actor_a,actor_b)** | idx_fused_actors | fusion | dashboard |
+| `link_feedback` | id:INTEGER, link_id:INTEGER, link_source:TEXT, feedback:TEXT, analyst_note:TEXT, submitted_at:TEXT | PK(id); NOT NULL link_source/feedback; CHECK feedback IN ('confirmed','rejected'); **no FK on link_id**; no UNIQUE | — | dashboard.record_feedback | feedback_stats |
+
+### Table count — verified
+
+**7 user tables** created by `db_setup.py` (`actors`, `posts`, `relationship_links`, `infra_links`, `actor_infra_map`, `fused_links`, `link_feedback`). The plan's "7" is correct. `sqlite_master` will report **8** because `AUTOINCREMENT` triggers SQLite's internal `sqlite_sequence` table — that is what the summary print at `db_setup.py:117-122` will list. `docs/Backend_Schema.md` documents only 5 (it predates `fused_links` and `link_feedback`) and is stale.
+
+### Keys — PK / FK / neither
+
+- **Have a PK:** actors (handle), posts, relationship_links, infra_links, fused_links, link_feedback (all surrogate `id` except actors).
+- **Have FKs:** posts, relationship_links, actor_infra_map, fused_links. (Note SQLite does **not** enforce FKs unless `PRAGMA foreign_keys=ON`, which no module sets — so all FKs are advisory only.)
+- **Neither PK nor a usable identity:** `actor_infra_map` has **no primary key at all** — duplicate `(handle, onion_address)` rows are allowed; `match_infra` guards against this in code, not schema.
+- `link_feedback.link_id` is **not** a declared FK; `feedback_stats` joins it to `relationship_links.id` by convention only (`feedback_stats.py:39`).
+
+### UNIQUE constraints — idempotency
+
+- `relationship_links`: `UNIQUE(actor_a, actor_b, link_type)` (`db_setup.py:56`) — makes identity/stylometry re-runs idempotent via `INSERT OR IGNORE`. **However**, because both PGP and wallet links share `link_type='shared_identifier'`, only **one** of them can persist per pair — the second `INSERT OR IGNORE` is silently dropped. So a pair sharing *both* PGP and wallet stores only the first-written shared-identifier row, and the fusion double-count (EC-24) depends on both rows existing. *(This means in practice the DarkFox PGP+wallet double-count is suppressed by the UNIQUE constraint, while stylometric+shared_identifier on the same pair is not. Worth verifying at runtime — marked UNVERIFIED pending a live DB run.)*
+- `fused_links`: `UNIQUE(actor_a, actor_b)` (`db_setup.py:89`) — one fused row per pair; `INSERT OR REPLACE` overwrites.
+- `infra_links`, `actor_infra_map`, `link_feedback`: **no UNIQUE** — re-runs and repeat clicks duplicate rows. Idempotency is impossible for these three at the schema level.
+
+### Provenance columns
+
+**CONFIRMED ABSENT across every table.** No capture ID, no source URL, no content/evidence hash, no collector identity anywhere in the schema (`db_setup.py:25-107`). The closest fields are the free-text `evidence`/`evidence_summary` strings and `actors.source` (a market name, not a capture reference).
+
+### Timestamps (EC-17)
+
+- `created_at` / `matched_at` / `submitted_at` all `TEXT DEFAULT CURRENT_TIMESTAMP` → SQLite writes **UTC** as `YYYY-MM-DD HH:MM:SS`.
+- `actors.last_seen` and `posts.timestamp` are free-text (`TEXT`) populated from source data (`YYYY-MM-DD` and ISO-8601 respectively in the sample) — **no timezone**, no validation.
+- These are write-time stamps, not observation/capture times — see provenance gap.
+
+### Audit / history table
+
+**None.** There is no audit-event or version-history table. `link_feedback` is the only append-only log, and it tracks votes, not entity/link mutations.
+
+### Mapping existing tables → canonical schema
+
+| Existing table | Canonical target | Verdict |
+|---|---|---|
+| `actors` | `entities` | **extend** — add provenance, normalised identifiers, roles |
+| `posts` | `captures` + `evidence_units` | **extend/split** — posts are raw captures; needs capture ID, source URL, hash |
+| `relationship_links` | `candidate_links` | **extend** — add `indicator_type`, category, provenance, role; widen `link_type` CHECK |
+| `fused_links` | `candidate_links` (scored) + `candidate_link_versions` | **replace** — recompute under categorised fusion; add version rows |
+| `link_feedback` | `audit_events` | **replace** — add analyst identity, note, supersede semantics |
+| `infra_links` | `evidence_units` (I-category) | **extend** — add provenance, UNIQUE, actor linkage |
+| `actor_infra_map` | (join into `evidence_units`/`candidate_links`) | **replace** — no PK; fold into evidence linkage |
+| *(none)* | `candidate_link_versions` | **new build** — score history does not exist |
+| *(none)* | `audit_events` | **new build** — no mutation audit trail exists |
+| *(none)* | `timeline_events` | **new build** — no timeline table exists |
+
+### Security concerns
+
+- FKs are declared but unenforced (no `PRAGMA foreign_keys=ON`) — orphaned links are possible.
+- No UNIQUE on `link_feedback`, `infra_links`, `actor_infra_map` — duplicate/replayed rows silently accumulate.
+
+### Data-provenance gaps
+
+- Zero provenance columns system-wide; no content hashes make no evidence tamper-evident.
+- No audit/history table means link and score changes are unrecoverable.
+
+### Adapter required
+
+Schema is Dev B's to extend in a later phase (not now — HARD CONSTRAINT 1). The audit records the target mapping above; the build will add provenance columns, an `audit_events` table, `candidate_link_versions`, and `timeline_events`, and widen the `relationship_links.link_type` CHECK to the full enum.
 
 ---
