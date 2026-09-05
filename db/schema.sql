@@ -146,7 +146,35 @@ CREATE TABLE IF NOT EXISTS timeline_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Case management (Branch 5): analyst-owned collections of links/entities
+CREATE TABLE IF NOT EXISTS cases (
+    case_id VARCHAR(64) PRIMARY KEY,
+    title VARCHAR(256) NOT NULL,
+    description TEXT,
+    status VARCHAR(32) DEFAULT 'open',
+    owner VARCHAR(128) NOT NULL,
+    link_ids_json JSONB DEFAULT '[]',
+    entity_ids_json JSONB DEFAULT '[]',
+    notes_json JSONB DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Export snapshots (Branch 5): immutable point-in-time exports with disclosure
+CREATE TABLE IF NOT EXISTS exports (
+    export_id VARCHAR(64) PRIMARY KEY,
+    export_type VARCHAR(32) NOT NULL,
+    requested_by VARCHAR(128) NOT NULL,
+    scope_json JSONB DEFAULT '{}',
+    snapshot_json JSONB DEFAULT '{}',
+    snapshot_sha256 VARCHAR(64),
+    disclosure TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_cases_owner ON cases(owner);
+CREATE INDEX IF NOT EXISTS idx_exports_requester ON exports(requested_by);
 CREATE INDEX IF NOT EXISTS idx_captures_source ON captures(source_id);
 CREATE INDEX IF NOT EXISTS idx_entities_canonical ON entities(canonical_name);
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
