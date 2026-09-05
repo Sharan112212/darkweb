@@ -6,7 +6,8 @@ from db.repositories.link_repo import LinkRepository
 class NetworkXProjection(BaseGraphProjection):
     """
     In-memory NetworkX graph projection engine.
-    Supports graph sync, multi-hop path traversal, and confidence calculation.
+    Supports graph sync, multi-hop path traversal, confidence calculation,
+    and date-bounded sub-graph expansion with node truncation limits (EC-38).
     Does not require external Neo4j services during demo/offline deployment.
     """
 
@@ -76,7 +77,8 @@ class NetworkXProjection(BaseGraphProjection):
                 attributes={
                     "state": state,
                     "score_model_version": link.get("score_model_version", "scoring-v1.0"),
-                    "explanation": link.get("explanation", "")
+                    "explanation": link.get("explanation", ""),
+                    "created_at": link.get("created_at", "")
                 }
             )
             added_count += 1
@@ -105,6 +107,90 @@ class NetworkXProjection(BaseGraphProjection):
             "edge_count": len(edges_list)
         }
 
+    def get_subgraph(
+        self,
+        entity_id: str,
+        depth: int = 2,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        min_score: float = 0.0,
+        limit: int = 100
+    ) -> Dict[str, Any]:
+        """
+        Returns k-hop ego subgraph centered at entity_id.
+        Supports date filtering and truncation limits (EC-38).
+        """
+        if not self.graph.has_node(entity_id):
+            return {
+                "nodes": [],
+                "edges": [],
+                "node_count": 0,
+                "edge_count": 0,
+                "truncated": False,
+                "absence_reason": "no_data_for_actor"
+            }
+
+        # Compute k-hop ego subgraph nodes
+        ego_nodes = set(nx.single_source_shortest_path_length(self.graph, entity_id, cutoff=depth).keys())
+        subg = self.graph.subgraph(ego_nodes).copy()
+
+        # Filter edges by score and date range
+        edges_to_remove = []
+        for u, v, data in subg.edges(data=True):
+            score = data.get("score", 0.0)
+            created_at = data.get("created_at") or data.get("updated_at", "")
+
+            if score < min_score:
+                edges_to_remove.append((u, v))
+                continue
+
+            if date_from and created_at and created_at < date_from:
+                edges_to_remove.append((u, v))
+                continue
+
+            if date_to and created_at and created_at > date_to:
+                edges_to_remove.append((u, v))
+                continue
+
+        subg.remove_edges_from(edges_to_remove)
+        # Remove isolated nodes except the root entity
+        isolated = [n for n in subg.nodes() if subg.degree(n) == 0 and n != entity_id]
+        subg.remove_nodes_from(isolated)
+
+        all_nodes = list(subg.nodes(data=True))
+        all_edges = list(subg.edges(data=True))
+
+        truncated = len(all_nodes) > limit
+        if truncated:
+            # Truncate nodes list to limit
+            truncated_nodes = all_nodes[:limit]
+            valid_node_ids = set(n for n, _ in truncated_nodes)
+            all_nodes = truncated_nodes
+            all_edges = [(u, v, d) for u, v, d in all_edges if u in valid_node_ids and v in valid_node_ids]
+
+        nodes_list = []
+        for n, data in all_nodes:
+            node_dict = dict(data)
+            node_dict["id"] = n
+            nodes_list.append(node_dict)
+
+        edges_list = []
+        for u, v, data in all_edges:
+            edge_dict = dict(data)
+            edge_dict["source"] = u
+            edge_dict["target"] = v
+            edges_list.append(edge_dict)
+
+        return {
+            "center_entity_id": entity_id,
+            "depth": depth,
+            "nodes": nodes_list,
+            "edges": edges_list,
+            "node_count": len(nodes_list),
+            "edge_count": len(edges_list),
+            "truncated": truncated
+        }
+
     def find_paths(
         self,
         source_id: str,
@@ -126,7 +212,6 @@ class NetworkXProjection(BaseGraphProjection):
             return []
 
         for p_nodes in raw_paths:
-            # Check edge scores along path
             edge_scores = []
             edge_details = []
             valid_path = True
@@ -154,7 +239,6 @@ class NetworkXProjection(BaseGraphProjection):
             if not valid_path or not edge_scores:
                 continue
 
-            # Compute aggregated path confidence score (product of edge scores along chain)
             path_confidence = 1.0
             for s in edge_scores:
                 path_confidence *= s
@@ -174,6 +258,5 @@ class NetworkXProjection(BaseGraphProjection):
                 "explanation": explanation
             })
 
-        # Sort paths by path_confidence descending
         paths_result.sort(key=lambda x: x["path_confidence"], reverse=True)
         return paths_result
