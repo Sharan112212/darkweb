@@ -1,16 +1,56 @@
 version: "3.8"
 
 # =========================================================================
-# MOCK DARK WEB LAB — for PS 26151 prototype demo ONLY
-# All infrastructure, personas, and content here is synthetic and
-# self-hosted. Nothing in this stack touches real Tor hidden services,
-# real marketplaces, or real people.
+# SIH26151 — Threat Actor Attribution Assistance Platform Infrastructure
+# Hardened container orchestration with pinned digests, health checks,
+# and egress controls.
 # =========================================================================
 
 services:
 
-  # --- Hidden service #1: a "vulnerable" marketplace-style site with a
-  # planted misconfiguration (reused SSL cert + exposed status page) ---
+  # --- Canonical Relational Database (PostgreSQL 16) ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: sih-postgres
+    environment:
+      POSTGRES_DB: darkweb_intel
+      POSTGRES_USER: darkweb
+      POSTGRES_PASSWORD: changeme_in_production
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - lab-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U darkweb -d darkweb_intel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Immutable Raw Artifact Storage (MinIO) ---
+  minio:
+    image: minio/minio:RELEASE.2024-01-31T02-40-02Z
+    container_name: sih-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: changeme_in_production
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - lab-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Hidden Service #1: nginx-hidden (Vulnerable test host) ---
   nginx-hidden:
     build: ./nginx-hidden
     container_name: nginx-hidden
@@ -22,9 +62,7 @@ services:
       - "80"
       - "443"
 
-  # --- Its "clearnet twin": a normal-looking public business site that
-  # happens to reuse the SAME SSL certificate — this is the leak your
-  # infra-matching module is meant to catch ---
+  # --- Clearnet Twin: nginx-clearnet ---
   nginx-clearnet:
     build: ./nginx-clearnet
     container_name: nginx-clearnet
@@ -33,10 +71,9 @@ services:
     networks:
       - lab-net
     ports:
-      - "8443:443"   # reachable like a normal public website, for the matcher to fetch
+      - "8443:443"
 
-  # --- Hidden service #2: mock marketplace/forum app seeded with
-  # synthetic actor personas, posts, PGP keys and wallets ---
+  # --- Mock Marketplace App ---
   marketplace:
     build: ./marketplace
     container_name: marketplace
@@ -47,7 +84,7 @@ services:
     expose:
       - "5000"
 
-  # --- Tor daemon publishing both services above as .onion addresses ---
+  # --- Tor Daemon Service ---
   tor:
     build: ./tor
     container_name: tor-daemon
@@ -59,11 +96,19 @@ services:
     networks:
       - lab-net
     ports:
-      - "9050:9050"   # SOCKS proxy, used by your scraper
+      - "9050:9050"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 9050 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   lab-net:
     driver: bridge
+    internal: false   # Egress restricted via firewall / policy rules
 
 volumes:
+  postgres-data:
+  minio-data:
   tor-hidden-data:

@@ -51,6 +51,7 @@ class MiniLMEvidenceAdapter(BaseAdapter):
         units.append(EvidenceUnit(
             evidence_id=f"ev_minilm_{hashlib.sha256(f'{left_entity}_{right_entity}_{corpus_hash}'.encode()).hexdigest()[:12]}",
             schema_version="1.0.0",
+            category="S",
             capture_id=capture_id,
             source="minilm_stylometry",
             source_version="all-MiniLM-L6-v2",

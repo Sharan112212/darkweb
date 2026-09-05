@@ -40,6 +40,7 @@ class InfraEvidenceAdapter(BaseAdapter):
         units.append(EvidenceUnit(
             evidence_id=f"ev_cert_{hashlib.sha256(f'{onion}_{clearnet}_{cert_fingerprint}'.encode()).hexdigest()[:12]}",
             schema_version="1.0.0",
+            category="I",
             capture_id=capture_id,
             source="infra_matcher",
             source_version="1.0.0",

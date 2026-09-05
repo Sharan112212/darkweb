@@ -43,7 +43,10 @@ class CaptureRepository(BaseRepository):
         Persist a Capture record.
         Returns the existing Capture record if duplicate constraint matches.
         """
-        data = dict(capture)
+        if hasattr(capture, "model_dump"):
+            data = capture.model_dump()
+        else:
+            data = dict(capture)
 
         cap_id = data.get("capture_id") or f"cap_{uuid.uuid4().hex[:12]}"
         source_id = data.get("source_id", "")

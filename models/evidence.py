@@ -44,3 +44,9 @@ class EvidenceUnit(BaseModel):
                 f"Candidate link requires exactly 2 linked entities, got {len(self.linked_entities)}"
             )
         return True
+
+    def __getitem__(self, item: str) -> Any:
+        return getattr(self, item)
+
+    def __contains__(self, item: str) -> bool:
+        return hasattr(self, item)

@@ -1,0 +1,22 @@
+sources:
+  - id: fixture_market_a
+    url_pattern: "fixture://market-a/*"
+    mode: fixture_replay
+    authorization_status: approved
+    approved_by: system
+    expires_at: null
+    blocklisted: false
+  - id: fixture_market_b
+    url_pattern: "fixture://market-b/*"
+    mode: fixture_replay
+    authorization_status: approved
+    approved_by: system
+    expires_at: null
+    blocklisted: false
+  - id: blocked_source
+    url_pattern: "fixture://blocked/*"
+    mode: fixture_replay
+    authorization_status: pending
+    approved_by: null
+    expires_at: null
+    blocklisted: true
