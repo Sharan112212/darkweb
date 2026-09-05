@@ -1,6 +1,5 @@
 import json
 import os
-import pytest
 from adapters.onionscan_adapter import (
     OnionScanAdapter,
     INFRA_CONFIDENCE_CAP,

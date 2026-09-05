@@ -1,7 +1,7 @@
 import math
 import hashlib
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from adapters.base_adapter import BaseAdapter
 from models.evidence import EvidenceUnit
 from models.enums import IndicatorType, ProcessingStatus

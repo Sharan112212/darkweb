@@ -6,7 +6,6 @@ Tests:
 - Infrastructure-alone cap (Category I ≤ 0.65).
 - Uncapped cryptographic signals (Category K reaching high confidence tiers).
 """
-import pytest
 from fusion.explainable_fusion import ExplainableFusionEngine
 from models.enums import IndicatorType, Tier
 from models.evidence import EvidenceUnit

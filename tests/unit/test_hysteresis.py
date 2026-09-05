@@ -10,7 +10,6 @@ Tests:
 - Clean raw mapping when no previous link exists.
 - CandidateLink version incrementing and creation timestamp preservation.
 """
-import pytest
 from fusion.explainable_fusion import ExplainableFusionEngine
 from models.candidate_link import CandidateLink
 from models.enums import Tier, LinkState, ScoreStatus

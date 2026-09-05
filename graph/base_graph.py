@@ -10,7 +10,6 @@ class BaseGraphProjection(ABC):
     @abstractmethod
     def add_node(self, entity_id: str, label: str = "Entity", attributes: Optional[Dict[str, Any]] = None) -> None:
         """Adds or updates a graph node."""
-        pass
 
     @abstractmethod
     def add_edge(
@@ -23,12 +22,10 @@ class BaseGraphProjection(ABC):
         attributes: Optional[Dict[str, Any]] = None
     ) -> None:
         """Adds or updates a graph relationship edge."""
-        pass
 
     @abstractmethod
     def get_projection(self) -> Dict[str, Any]:
         """Returns full graph projection structure with nodes and edges."""
-        pass
 
     @abstractmethod
     def find_paths(
@@ -39,4 +36,3 @@ class BaseGraphProjection(ABC):
         min_score: float = 0.0
     ) -> List[Dict[str, Any]]:
         """Finds multi-hop paths between source and target entities."""
-        pass

@@ -1,4 +1,3 @@
-import pytest
 from graph.neo4j_projection import Neo4jProjection
 
 def test_neo4j_projection_fallback_when_offline():

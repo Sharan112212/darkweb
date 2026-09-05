@@ -4,7 +4,6 @@ Supports SQLite (development/testing) and PostgreSQL (production).
 """
 
 import os
-import re
 import sqlite3
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 

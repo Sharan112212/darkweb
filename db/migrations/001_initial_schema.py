@@ -15,7 +15,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from db.connection import DatabaseConnection, get_connection
+from db.connection import get_connection
 
 
 def run_migration(db_path_or_url: Optional[str] = None) -> List[str]:

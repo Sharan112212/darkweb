@@ -1,4 +1,6 @@
-# Python
+# ==============================================================================
+# Python & Bytecode
+# ==============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -8,50 +10,90 @@ __pycache__/
 dist/
 build/
 
-# Virtual environments
+# ==============================================================================
+# Virtual Environments
+# ==============================================================================
 env/
 venv/
 .venv/
+ENV/
 
-# Environment secrets
+# ==============================================================================
+# Environment & Secrets
+# ==============================================================================
 .env
+.env.*
+!.env.example
 *.env.local
 
-# Databases
+# ==============================================================================
+# Databases & Generated Data
+# ==============================================================================
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
 *.sqlite3
+*.sqlite3-journal
 
-# SSL certificates (generated)
+# ==============================================================================
+# SSL Certificates & Private Keys (generated)
+# ==============================================================================
 certs/*.pem
+certs/*.key
+certs/*.crt
+certs/*.csr
+certs/*.srl
 
-# IDE
+# ==============================================================================
+# Testing & Coverage Artifacts
+# ==============================================================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ==============================================================================
+# IDE & Editors
+# ==============================================================================
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# ==============================================================================
+# OS Generated Files
+# ==============================================================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
-# Model weights (tracked separately / bundled)
-# models/all-MiniLM-L6-v2/ is intentionally tracked for offline demo
-
-# Docker volumes
+# ==============================================================================
+# Application Data & Scanner Artifacts
+# ==============================================================================
 data/
-
-# Test artifacts
-.pytest_cache/
-htmlcov/
-.coverage
-
-# Raw scan outputs (OnionScan runner persists raw output + hash here)
 artifacts/
+neo4j/data/
+neo4j/logs/
 
-# Archives
+# ==============================================================================
+# Archives & Obsolete Prototype Dumps
+# ==============================================================================
 darklabdoc/
 
-# Extracted text (temporary)
-*.txt
-!fixtures/**/*.txt
-!docs/**/*.txt
+# ==============================================================================
+# Model weights (tracked separately / bundled for air-gapped demo)
+# ==============================================================================
+# models/all-MiniLM-L6-v2/ is intentionally tracked for offline demo (EC-37)

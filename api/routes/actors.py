@@ -1,5 +1,5 @@
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, Request
+from typing import Optional, Dict, Any
+from fastapi import APIRouter, Depends, Query, Request
 from db.repositories.entity_repo import EntityRepository
 from db.repositories.link_repo import LinkRepository
 from db.repositories.evidence_repo import EvidenceRepository
@@ -63,3 +63,34 @@ def get_actor_profile(
         "evidence_count": len(evidence),
         "disclosure": DISCLOSURE,
     }
+
+
+@router.get("/{actor_id}/graph")
+def get_actor_ego_graph(
+    actor_id: str,
+    request: Request,
+    depth: int = Query(2, ge=1, le=5),
+    min_score: float = Query(0.0, ge=0.0, le=1.0),
+    date_from: Optional[str] = Query(None, alias="from"),
+    date_to: Optional[str] = Query(None, alias="to"),
+    limit: int = Query(100, ge=1, le=1000),
+    user: dict = Depends(require_role([UserRole.viewer.value])),
+    db_path: Optional[str] = Depends(get_db_path),
+) -> Dict[str, Any]:
+    """
+    Returns ego sub-graph centered around actor_id up to depth hops,
+    filtered by date boundaries and min_score, capped by limit (EC-38).
+    """
+    from graph.neo4j_projection import Neo4jProjection
+    proj = Neo4jProjection()
+    proj.sync_from_db(db_path=db_path, min_score=min_score)
+    subgraph = proj.get_subgraph(
+        entity_id=actor_id,
+        depth=depth,
+        date_from=date_from,
+        date_to=date_to,
+        min_score=min_score,
+        limit=limit
+    )
+    return subgraph
+

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from graph.base_graph import BaseGraphProjection
 from graph.networkx_projection import NetworkXProjection
 

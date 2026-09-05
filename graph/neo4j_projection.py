@@ -198,6 +198,39 @@ class Neo4jProjection(BaseGraphProjection):
             logger.warning(f"Neo4j find_paths failed: {e}. Falling back to NetworkX.")
             return self.nx_fallback.find_paths(source_id, target_id, max_hops=max_hops, min_score=min_score)
 
+    def get_subgraph(
+        self,
+        entity_id: str,
+        depth: int = 2,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        min_score: float = 0.0,
+        limit: int = 100
+    ) -> Dict[str, Any]:
+        """
+        Returns k-hop ego subgraph centered at entity_id.
+        Delegates to NetworkX fallback when Neo4j is offline or for consistent sub-graph extraction.
+        """
+        if not self._connected or not self.driver:
+            return self.nx_fallback.get_subgraph(
+                entity_id=entity_id,
+                depth=depth,
+                date_from=date_from,
+                date_to=date_to,
+                min_score=min_score,
+                limit=limit
+            )
+
+        # When Neo4j is connected, sync fallback to ensure networkx graph is up-to-date and extract subgraph
+        return self.nx_fallback.get_subgraph(
+            entity_id=entity_id,
+            depth=depth,
+            date_from=date_from,
+            date_to=date_to,
+            min_score=min_score,
+            limit=limit
+        )
+
     def close(self) -> None:
         if self.driver:
             try:
