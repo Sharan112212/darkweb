@@ -1,0 +1,19 @@
+{
+  "description": "Mixed language / Non-English corpus fixture: Fails English language confidence gate",
+  "actor_a": "polyglot_user",
+  "actor_b": "english_user",
+  "posts_a": [
+    "Привет всем участникам данного форума! Сегодня мы рады представить вам совершенно новый и уникальный сервис для защиты ваших персональных данных в сети. Наша команда провела масштабное исследование в области шифрования и безопасности данных. Пожалуйста, внимательно прочитайте инструкцию перед использованием наших сервисов. Мы гарантируем высочайший уровень конфиденциальности.",
+    "Bonjour à tous nos utilisateurs, voici notre nouveau produit выберите наиболее подходящий вариант. Мы гарантируем быструю и безопасную доставку в любой регион мира. Все наши серверы находятся в защищенных дата-центрах и полностью изолированы от внешних угроз. Если у вас возникнут вопросы, обращайтесь в службу поддержки в любое удобное время.",
+    "Hola amigos, este es un mensaje очень важное для всех клиентов сервиса. Мы добавили поддержку новых способов оплаты и улучшили алгоритмы анонимизации. Пожалуйста, следите за обновлениями на нашем официальном канале и не используйте устаревшие версии программного обеспечения. Надеемся на продуктивное сотрудничество.",
+    "Guten Tag! Wir haben neue Updates для системы безопасного обмена сообщениями. Пожалуйста, установите последнюю версию приложения, чтобы избежать потенциальных уязвимостей. Все ключи шифрования генерируются исключительно на стороне клиента и никогда не передаются на сервер.",
+    "Здравствуйте, дорогие друзья! У нас появились отличные скидки для постоянных клиентов и оптовых покупателей. Для получения подробной информации обращайтесь в личные сообщения. Мы всегда на связи и готовы ответить на любые ваши вопросы в кратчайшие сроки. Спасибо за доверие!"
+  ],
+  "posts_b": [
+    "Hello everyone. I am releasing a new software tool for system monitoring. It features automated logging, clean configurations, and lightweight overhead. However, you should always test your builds before deploying. Make sure that you review all settings in advance. Furthermore, it is very important to verify file hashes prior to execution.",
+    "Regarding the update released yesterday: we fixed several edge cases in the network handler. In addition, we optimized memory allocation to ensure smooth operation under heavy loads. If you encounter any bugs, please submit a detailed report. Remember that bug reports must include system logs and environment parameters.",
+    "Today I want to discuss best practices for encrypted backups. First, always use strong key derivation functions. Second, store your keys in isolated memory spaces. Third, automate the verification of backup integrity on a regular schedule. Furthermore, never share your primary credentials across multiple systems.",
+    "Many users have asked about multi-threading support in our latest release. We have implemented a lock-free queue that handles concurrent tasks efficiently. However, thread safety requires careful management of shared state. Make sure that all worker threads handle exceptions gracefully to prevent crashes.",
+    "This final post summarizes our roadmap for the upcoming quarter. We plan to integrate hardware security module support and improve API performance. In addition, we will conduct an independent security audit of the core codebase. Thank you for your continued feedback and support throughout this process."
+  ]
+}
