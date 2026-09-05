@@ -1,0 +1,11 @@
+{
+  "hiddenService": "valid_result.onion",
+  "onionScanVersion": "0.2.0",
+  "date": "2026-09-02T09:30:00Z",
+  "analyticsIDs": ["UA-11223344-9"],
+  "exifLeaks": ["Camera: Nikon D3500, GPS: present, Software: GIMP 2.10"],
+  "serverStatus": "Apache/2.4.52 (Debian) Server at valid_result.onion Port 80 (/server-status)",
+  "sshKeys": ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIvalid_result_ssh_key"],
+  "certificates": ["ff11ee22dd33cc44bb55aa66778899001122334455667788990011223344abcd"],
+  "openDirectories": ["/backups/", "/private/uploads/"]
+}

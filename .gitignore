@@ -45,6 +45,9 @@ data/
 htmlcov/
 .coverage
 
+# Raw scan outputs (OnionScan runner persists raw output + hash here)
+artifacts/
+
 # Archives
 darklabdoc/
 
