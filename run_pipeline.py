@@ -17,7 +17,6 @@ USAGE:
 """
 import sqlite3
 import os
-import sys
 import time
 
 # Ensure we run from the project root
@@ -101,16 +100,20 @@ if __name__ == "__main__":
     print_banner("DARK WEB ANALYSIS PIPELINE — PS 26151")
     print("  Running all analysis modules in sequence...")
 
-    # Check database exists
-    if not os.path.exists(DB_PATH):
-        print(f"\n[!] Database not found at {DB_PATH}")
-        print("    Run the scraper first:")
-        print("    python scraper/scraper.py --onion <marketplace>.onion")
-        sys.exit(1)
-
-    # Step 1: Extend schema
+    # Step 1: Extend schema (also creates the DB file if it does not exist)
     from db_setup import setup_schema
     run_step("Step 1: Extending database schema", setup_schema)
+
+    # Step 1b: If no actors were collected (scraper not run / air-gapped demo),
+    # seed the database directly from sample_data so the pipeline is runnable
+    # offline. Live-scraped data is never overwritten — this only runs when the
+    # actors table is empty.
+    from seed_data import actors_table_is_empty, seed_database
+    if actors_table_is_empty():
+        print_banner("Step 1b: No scraped actors found — seeding from sample_data")
+        print("    (Run the scraper for live data: "
+              "python scraper/scraper.py --onion <marketplace>.onion)")
+        run_step("Seeding synthetic fixtures", seed_database)
 
     # Step 2: Identity graph
     from identity_graph import run_identity_graph
