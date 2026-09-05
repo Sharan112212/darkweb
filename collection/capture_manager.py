@@ -80,7 +80,8 @@ class CaptureManager:
         """Finds source definition by source_id or matching url_pattern."""
         if source_id:
             for s in self.sources:
-                if s.get("id") == source_id:
+                sid = s.get("id", "")
+                if sid == source_id or sid == f"fixture_{source_id.replace('-', '_')}" or sid == f"{source_id}_source":
                     return s
         if url:
             for s in self.sources:

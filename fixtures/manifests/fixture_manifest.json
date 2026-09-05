@@ -1,37 +1,37 @@
 {
-  "blocked\\captcha_page.html": {
+  "blocked/captcha_page.html": {
     "sha256": "37c141076273b0cefe52c786b3d83ece20b454d437151b22bb5a20655ff3dad4",
     "size_bytes": 579
   },
-  "market-a\\ghostvendor.html": {
+  "market-a/ghostvendor.html": {
     "sha256": "023e04327231c77324cd208392f7dc22a823a4f031c64bb6dc658c36df9710a8",
     "size_bytes": 1163
   },
-  "market-a\\ghostvendor_changed.html": {
+  "market-a/ghostvendor_changed.html": {
     "sha256": "f7024cc617159938b614593798328e145a9d2006096a8990d3809de5f7f0278f",
     "size_bytes": 773
   },
-  "market-a\\ghostvendor_offline.html": {
+  "market-a/ghostvendor_offline.html": {
     "sha256": "dd2fbf307846426445aff1ff40d1b18f3432f75cce9fe368a660711c3c8c44b3",
     "size_bytes": 267
   },
-  "market-a\\nightshade99.html": {
+  "market-a/nightshade99.html": {
     "sha256": "d775233b82156630b661faef83061b7f53907bb63e8a45859fe08b5bde3cd4e3",
     "size_bytes": 1128
   },
-  "market-b\\mirror_ghostvendor.html": {
+  "market-b/mirror_ghostvendor.html": {
     "sha256": "36abb43041efbb259468c0485bd371301d78221dbd5f435f45e5f3c3ef848e28",
     "size_bytes": 552
   },
-  "market-b\\mixer_pair_a.html": {
+  "market-b/mixer_pair_a.html": {
     "sha256": "63cebb3890fd958f181a96204f0ddd082847bf67cb70433faf1a491d6f8ca6d3",
     "size_bytes": 572
   },
-  "market-b\\mixer_pair_b.html": {
+  "market-b/mixer_pair_b.html": {
     "sha256": "32271e7590e52f8a64eeb9ba4b3c848ef7149f6037da677f37100715b80be5ff",
     "size_bytes": 593
   },
-  "market-b\\oversized.html": {
+  "market-b/oversized.html": {
     "sha256": "63a441d2258253c75fe8460b13c6fc9faaf802594bda785792dbf8a11031e566",
     "size_bytes": 10486863
   }

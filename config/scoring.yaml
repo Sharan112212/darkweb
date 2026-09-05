@@ -1,0 +1,37 @@
+score_model_version: "scoring-v1.0"
+hysteresis_margin: 0.03
+
+categories:
+  K:
+    name: "Cryptographic & Hard Identifiers"
+    weight: 1.00
+    max_contribution: 1.00
+  I:
+    name: "Infrastructure"
+    weight: 0.85
+    max_contribution: 0.65 # Capped at possible_association unless corroborated
+  B:
+    name: "Behavioral"
+    weight: 0.80
+    max_contribution: 0.65 # Capped at possible_association unless corroborated
+  S:
+    name: "Semantic & Stylometric"
+    weight: 0.70
+    max_contribution: 0.20 # Text-only max contribution <= 0.20 per Build Guide §14
+
+tiers:
+  insufficient_evidence:
+    min_score: 0.00
+    max_score: 0.20
+  unresolved:
+    min_score: 0.20
+    max_score: 0.40
+  possible_association:
+    min_score: 0.40
+    max_score: 0.70
+  likely_same_actor:
+    min_score: 0.70
+    max_score: 0.90
+  observed_technical_identity:
+    min_score: 0.90
+    max_score: 1.00

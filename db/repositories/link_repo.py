@@ -85,7 +85,7 @@ class LinkRepository(BaseRepository):
         limitations = data.get("limitations_json") or data.get("limitations", [])
         limitations_json = self._serialize_json(limitations, default_str="[]")
 
-        # 1. Check idempotency constraint duplicate
+        # 1. Check idempotency constraint duplicate (only if state and score are also identical)
         if calculation_input_hash and score_model_version:
             existing_duplicate = self._find_duplicate(
                 left_entity_id=left_entity_id,
@@ -93,10 +93,10 @@ class LinkRepository(BaseRepository):
                 score_model_version=score_model_version,
                 calculation_input_hash=calculation_input_hash,
             )
-            if existing_duplicate:
+            if existing_duplicate and existing_duplicate.get("state") == state and float(existing_duplicate.get("score", 0)) == score:
                 return existing_duplicate
 
-        # 2. Check if this is an update to an existing link_id or existing pair
+        # Check if updating an existing link by link_id or pair
         existing_link = None
         if "link_id" in data and data["link_id"]:
             existing_link = self.get_by_id(data["link_id"])

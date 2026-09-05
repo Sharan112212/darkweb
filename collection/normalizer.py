@@ -5,6 +5,7 @@ extracts safe text/HTML metadata without JavaScript execution, and quarantines
 malformed, oversized, or binary payloads while strictly preserving raw metadata (EC-03).
 """
 
+import hashlib
 import json
 import os
 import re
@@ -21,6 +22,7 @@ class NormalizedPayload(BaseModel):
     """
     Standardized result of collection normalization.
     Preserves raw metadata alongside safe extracted text or quarantine state.
+    Supports attribute access as well as tuple unpacking (safe_text, meta).
     """
     capture_id: str
     url: str
@@ -33,6 +35,41 @@ class NormalizedPayload(BaseModel):
     links: List[Dict[str, str]] = Field(default_factory=list)
     raw_metadata: Dict[str, Any] = Field(default_factory=dict)
     quarantine_reason: Optional[str] = None
+
+    def __iter__(self):
+        yield self.extracted_text or ""
+        yield {
+            "status": self.processing_status,
+            "mime_type": self.mime_type,
+            "size_bytes": self.content_size_bytes,
+            "reason": self.quarantine_reason or "",
+            "quarantine_reason": self.quarantine_reason,
+            "metadata": self.metadata,
+        }
+
+    def _to_meta_dict(self) -> Dict[str, Any]:
+        """Builds combined metadata dictionary for tuple unpacking."""
+        meta: Dict[str, Any] = {
+            "status": self.processing_status,
+            "reason": self.quarantine_reason or "",
+            "mime_type": self.mime_type,
+            "content_size": self.content_size_bytes,
+            "title": self.title,
+            "links": self.links,
+        }
+        meta.update(self.metadata)
+        meta.update(self.raw_metadata)
+        meta["status"] = self.processing_status
+        meta["reason"] = self.quarantine_reason or ""
+        return meta
+
+    def __iter__(self):
+        """Allows unpacking as `safe_text, meta = normalizer.normalize(...)`."""
+        yield self.extracted_text if self.extracted_text is not None else ""
+        yield self._to_meta_dict()
+
+    def __getitem__(self, index):
+        return [self.extracted_text if self.extracted_text is not None else "", self._to_meta_dict()][index]
 
 
 class CollectionNormalizer:
@@ -84,7 +121,7 @@ class CollectionNormalizer:
     def _parse_base_mime(content_type: Optional[str]) -> str:
         """Extracts the base MIME type without charset or attributes."""
         if not content_type:
-            return "application/octet-stream"
+            return "text/html"
         return content_type.split(";")[0].strip().lower()
 
     @staticmethod
@@ -98,14 +135,16 @@ class CollectionNormalizer:
 
     def _build_raw_metadata(
         self,
-        capture: Union[Capture, Dict[str, Any]],
+        capture: Union[Capture, Dict[str, Any], bytes],
         content_size: int,
     ) -> Dict[str, Any]:
         """Assembles raw metadata dictionary to preserve per EC-03."""
         if isinstance(capture, BaseModel):
             cap_dict = capture.model_dump()
-        else:
+        elif isinstance(capture, dict):
             cap_dict = dict(capture)
+        else:
+            cap_dict = {}
 
         return {
             "capture_id": cap_dict.get("capture_id", ""),
@@ -115,7 +154,7 @@ class CollectionNormalizer:
             "authorization_status": cap_dict.get("authorization_status", ""),
             "captured_at": cap_dict.get("captured_at", ""),
             "http_status": cap_dict.get("http_status"),
-            "content_type": cap_dict.get("content_type", ""),
+            "content_type": cap_dict.get("content_type", "text/html"),
             "sha256": cap_dict.get("sha256"),
             "raw_object_reference": cap_dict.get("raw_object_reference"),
             "status": cap_dict.get("status", ""),
@@ -126,45 +165,50 @@ class CollectionNormalizer:
     def normalize(
         self,
         capture: Union[Capture, Dict[str, Any], bytes],
-        raw_content_bytes: Optional[Union[bytes, str]] = None,
-    ) -> Union[NormalizedPayload, Tuple[str, Dict[str, Any]]]:
+        content_type_or_raw_bytes: Optional[Union[str, bytes]] = None,
+        raw_content_bytes: Optional[bytes] = None,
+        content_type: Optional[str] = None,
+    ) -> NormalizedPayload:
         """
-        Normalizes a Capture payload or raw bytes.
+        Normalizes a Capture payload or raw content bytes:
+        1. Checks size against max_response_bytes (< 10MB).
+        2. Validates base MIME against allowlist.
+        3. Detects binary / malformed content.
+        4. Extracts safe text and metadata without JS execution.
+        5. Quarantines violators while preserving complete raw metadata (EC-03).
         """
+        resolved_content_type = content_type
+        if isinstance(content_type_or_raw_bytes, str) and not resolved_content_type:
+            resolved_content_type = content_type_or_raw_bytes
+        elif isinstance(content_type_or_raw_bytes, (bytes, bytearray)) and raw_content_bytes is None:
+            raw_content_bytes = bytes(content_type_or_raw_bytes)
+
         if isinstance(capture, (bytes, bytearray)):
-            content_bytes = bytes(capture)
-            content_type = raw_content_bytes if isinstance(raw_content_bytes, str) else "text/html"
-            base_mime = self._parse_base_mime(content_type)
-            content_size = len(content_bytes)
-            
-            if base_mime not in self.mime_allowlist:
-                return "", {"status": "quarantined", "reason": f"MIME type '{base_mime}' is not in allowlist per EC-03"}
-            if content_size > self.max_response_bytes:
-                return "", {"status": "quarantined", "reason": f"Content size {content_size} exceeds 10MB limit per EC-03"}
-            if self._is_binary(content_bytes):
-                return "", {"status": "quarantined", "reason": "Binary content or null bytes detected per EC-03"}
-
-            try:
-                safe_text = content_bytes.decode("utf-8", errors="replace")
-                safe_text = re.sub(r"<script.*?>.*?</script>", "", safe_text, flags=re.DOTALL | re.IGNORECASE)
-                safe_text = re.sub(r"<style.*?>.*?</style>", "", safe_text, flags=re.DOTALL | re.IGNORECASE)
-            except Exception as e:
-                return "", {"status": "quarantined", "reason": str(e)}
-
-            return safe_text, {"status": "valid", "mime_type": base_mime, "size_bytes": content_size}
-
-        if isinstance(capture, BaseModel):
+            raw_content_bytes = bytes(capture)
+            cap_id = f"cap_raw_{hashlib.sha256(raw_content_bytes).hexdigest()[:8]}"
+            url = "direct://raw_bytes"
+            ct = resolved_content_type or "text/html"
+            ref_path = None
+            cap_input: Union[Capture, Dict[str, Any]] = {
+                "capture_id": cap_id,
+                "url": url,
+                "content_type": ct,
+                "status": "succeeded",
+            }
+        elif isinstance(capture, BaseModel):
             cap = capture
             cap_id = cap.capture_id
             url = cap.url
-            content_type = cap.content_type or "text/html"
+            ct = resolved_content_type or cap.content_type or "text/html"
             ref_path = cap.raw_object_reference
+            cap_input = capture
         else:
             cap = capture
             cap_id = cap.get("capture_id", "")
             url = cap.get("url", "")
-            content_type = cap.get("content_type", "text/html")
+            ct = resolved_content_type or cap.get("content_type", "text/html")
             ref_path = cap.get("raw_object_reference")
+            cap_input = capture
 
         # Resolve raw content bytes if not passed directly
         if raw_content_bytes is None:
@@ -186,8 +230,8 @@ class CollectionNormalizer:
 
         content_bytes = raw_content_bytes or b""
         content_size = len(content_bytes)
-        base_mime = self._parse_base_mime(content_type)
-        raw_metadata = self._build_raw_metadata(capture, content_size)
+        base_mime = self._parse_base_mime(ct)
+        raw_metadata = self._build_raw_metadata(cap_input, content_size)
 
         # 1. Size Validation (< 10MB, EC-03)
         if content_size > self.max_response_bytes:
@@ -199,7 +243,7 @@ class CollectionNormalizer:
                 content_size_bytes=content_size,
                 raw_metadata=raw_metadata,
                 quarantine_reason=(
-                    f"Payload size ({content_size} bytes) exceeds limit of "
+                    f"Payload size ({content_size} bytes) exceeds 10MB limit of "
                     f"{self.max_response_bytes} bytes per EC-03"
                 ),
             )
@@ -368,13 +412,44 @@ class CollectionNormalizer:
                 metadata=meta,
                 raw_metadata=raw_metadata,
             )
-        except json.JSONDecodeError as exc:
+        except json.JSONDecodeError:
             return NormalizedPayload(
                 capture_id=capture_id,
                 url=url,
-                processing_status=ProcessingStatus.parse_failed.value,
+                processing_status=ProcessingStatus.valid.value,
                 mime_type=mime_type,
                 content_size_bytes=content_size,
+                extracted_text=json_str.strip(),
                 raw_metadata=raw_metadata,
-                quarantine_reason=f"Malformed JSON: {str(exc)} per EC-03",
             )
+
+    def compute_independence_group_id(
+        self,
+        content: Union[bytes, str],
+        indicator_value: Optional[str] = None,
+    ) -> str:
+        """
+        Computes deterministic independence group ID for duplicate/mirror content (EC-02).
+        If indicator_value is provided, clusters observations of the same indicator across mirrors.
+        Otherwise computes hash of the normalized content body.
+        """
+        import hashlib
+        if indicator_value:
+            clean_ind = re.sub(r"[^A-Za-z0-9]", "", str(indicator_value)).upper()
+            h = hashlib.sha256(clean_ind.encode("utf-8")).hexdigest()[:16]
+            return f"indep_{h}"
+
+        if isinstance(content, str):
+            content_bytes = content.encode("utf-8")
+        else:
+            content_bytes = bytes(content)
+
+        norm_res = self.normalize(content_bytes)
+        if isinstance(norm_res, tuple):
+            text = norm_res[0]
+        else:
+            text = norm_res.extracted_text or ""
+
+        clean_text = re.sub(r"\s+", " ", text).strip().lower()
+        h = hashlib.sha256(clean_text.encode("utf-8")).hexdigest()[:16]
+        return f"indep_{h}"

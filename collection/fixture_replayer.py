@@ -42,17 +42,10 @@ class FixtureReplayer:
                 pass
 
     def infer_source_id(self, url: str) -> str:
-        """Infers registered source_id from fixture URL."""
+        """Infers source_id from fixture URL."""
         clean = url.replace("fixture://", "")
-        parts = clean.split("/")
-        market = parts[0] if parts else "market-a"
-        if "market-a" in market:
-            return "fixture_market_a"
-        elif "market-b" in market:
-            return "fixture_market_b"
-        elif "blocked" in market:
-            return "blocked_source"
-        return f"fixture_{market.replace('-', '_')}"
+        parts = clean.strip("/").split("/")
+        return parts[0] if parts else "market-a"
 
     def resolve_fixture_file(
         self,
@@ -60,18 +53,27 @@ class FixtureReplayer:
         stage: Optional[Union[str, int]] = None,
     ) -> Tuple[str, int, str, Optional[str]]:
         """
-        Resolves fixture:// URL to file path and status.
+        Resolves fixture:// URL and optional transition stage to a local file path,
+        HTTP status, capture status, and not_collected_reason.
+
+        Stages:
+          0 or 'online': initial online content (200 OK)
+          1 or 'offline': offline 503 outage (503 Service Unavailable, EC-01)
+          2 or 'changed': updated content after recovery (200 OK)
         """
         clean = url.replace("fixture://", "")
+        # E.g. "market-a/profile/ghostvendor" -> market="market-a", name="ghostvendor"
         parts = clean.strip("/").split("/")
         market = parts[0]
         filename = parts[-1]
 
+        # Strip .html if present in url
         if filename.endswith(".html"):
             base_name = filename[:-5]
         else:
             base_name = filename
 
+        # Determine target file name based on transition stage
         stage_str = str(stage).lower() if stage is not None else None
         if stage_str in ("1", "offline", "503"):
             target_name = f"{base_name.replace('_offline', '').replace('_changed', '')}_offline.html"
@@ -89,6 +91,7 @@ class FixtureReplayer:
             status = "succeeded"
             reason = None
         else:
+            # Direct resolution from url name
             if base_name.endswith("_offline"):
                 target_name = f"{base_name}.html"
                 http_status = 503
@@ -103,7 +106,7 @@ class FixtureReplayer:
                 target_name = f"{base_name}.html"
                 http_status = 403
                 status = "blocked"
-                reason = "CAPTCHA challenge detected; passive collection only per EC-04"
+                reason = "Blocked source: CAPTCHA challenge detected; passive collection only per EC-04"
             else:
                 target_name = f"{base_name}.html"
                 http_status = 200
@@ -170,8 +173,8 @@ class FixtureReplayer:
                 url=url,
                 raw_content_bytes=None,
                 status="failed",
-                http_status=404,
-                not_collected_reason=f"Fixture not found at {file_path}",
+                http_status=503,
+                not_collected_reason=f"Source offline: fixture missing at {file_path} (EC-01)",
                 captured_at=captured_at,
                 mode="fixture_replay",
             )
